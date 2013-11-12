@@ -5,6 +5,7 @@
 // Put everything into a namespace defined by one variable.
 if (typeof(global) !== 'undefined') {
     var GH = global.GH;
+    log = global.log;
 }
 if (typeof GH == 'undefined') {
   var GH = {};
@@ -29,164 +30,164 @@ GH.Scanner = function (lines) {
     this.toks = [];
     this.tokix = 0;
 
-	this.styleScanner = new GH.StyleScanner();
+    this.styleScanner = new GH.StyleScanner();
 };
 
 GH.styling = function(table, title, suggest) {
-	this.table = table;
-	this.title = title;
-	// Remove the quotation marks from the suggestion names.
-	if (suggest) {
-		for (var i = 0; i < suggest.length; i++) {
-			var suggestParameter = '';
-			var lastToken = true;
-			while (suggest[i].length > 1) {
-				if (!lastToken) {
-					suggestParameter = ' ' + suggestParameter;
-				}
-				lastToken = false;
-				suggestParameter = suggest[i].pop() + suggestParameter;
-			}
-			var splitParameters = suggestParameter.split('\'');
-			var parameters = [];
-			for (var j = 1; j < splitParameters.length; j += 2) {
-				suggest[i].push(splitParameters[j]);
-			}
-		}
-	}
-	this.suggest = suggest;
+    this.table = table;
+    this.title = title;
+    // Remove the quotation marks from the suggestion names.
+    if (suggest) {
+        for (var i = 0; i < suggest.length; i++) {
+            var suggestParameter = '';
+            var lastToken = true;
+            while (suggest[i].length > 1) {
+                if (!lastToken) {
+                    suggestParameter = ' ' + suggestParameter;
+                }
+                lastToken = false;
+                suggestParameter = suggest[i].pop() + suggestParameter;
+            }
+            var splitParameters = suggestParameter.split('\'');
+            var parameters = [];
+            for (var j = 1; j < splitParameters.length; j += 2) {
+                suggest[i].push(splitParameters[j]);
+            }
+        }
+    }
+    this.suggest = suggest;
 };
 
 GH.StyleScanner = function() {
-	this.styleMode = GH.StyleScanner.modeTypes.NONE;
-	this.table = null;
-	this.title = '';
-	this.summary = '';
-	this.suggest = null;
-	this.leftColumns = 0;
-	this.color = '';
+    this.styleMode = GH.StyleScanner.modeTypes.NONE;
+    this.table = null;
+    this.title = '';
+    this.summary = '';
+    this.suggest = null;
+    this.leftColumns = 0;
+    this.color = '';
 };
 
 GH.StyleScanner.modeTypes = {
-	NONE: 0,
-	TABLE: 1,
-	TITLE: 2,
-	SUGGEST: 3,
-	SUGGEST_FUNC: 4,
-	SUMMARY: 5,
+    NONE: 0,
+    TABLE: 1,
+    TITLE: 2,
+    SUGGEST: 3,
+    SUGGEST_FUNC: 4,
+    SUMMARY: 5,
 };
 
 GH.StyleScanner.prototype.read_column_style = function(tok) {
-	if (tok == '') {
-		return;
-	} else if (tok == '(') {
-		var newTableExpression = new GH.tableExpression(this.table, null, this.leftColumns, this.color);
-		this.table.children.push(newTableExpression);
-		this.table = newTableExpression;
-		this.leftColumns = 0;
-		this.color = '';
-	} else if (tok == ')') {
-		this.table = this.table.parent;
-	} else if (tok == '[') {
-		this.leftColumns++;
-	} else if (tok == ']') {
-		this.table.addRightColumn();
-	} else if (tok == '<r>') {
-		this.color = 'red';
-	} else if (tok == '<m>') {
-		this.color = 'magenta';
-	} else if (tok == '<b>') {
-		this.color = 'blue';
-	} else if (tok == '<c>') {
-		this.color = 'cyan';
-	} else if (tok == '<g>') {
-		this.color = 'green';
-	} else if (tok == '<k>') {
-		this.color = 'black';
-	} else {
-		this.table.addExpression(tok, this.leftColumns, this.color);
-		this.leftColumns = 0;
-		this.color = '';
-	}
+    if (tok == '') {
+        return;
+    } else if (tok == '(') {
+        var newTableExpression = new GH.tableExpression(this.table, null, this.leftColumns, this.color);
+        this.table.children.push(newTableExpression);
+        this.table = newTableExpression;
+        this.leftColumns = 0;
+        this.color = '';
+    } else if (tok == ')') {
+        this.table = this.table.parent;
+    } else if (tok == '[') {
+        this.leftColumns++;
+    } else if (tok == ']') {
+        this.table.addRightColumn();
+    } else if (tok == '<r>') {
+        this.color = 'red';
+    } else if (tok == '<m>') {
+        this.color = 'magenta';
+    } else if (tok == '<b>') {
+        this.color = 'blue';
+    } else if (tok == '<c>') {
+        this.color = 'cyan';
+    } else if (tok == '<g>') {
+        this.color = 'green';
+    } else if (tok == '<k>') {
+        this.color = 'black';
+    } else {
+        this.table.addExpression(tok, this.leftColumns, this.color);
+        this.leftColumns = 0;
+        this.color = '';
+    }
 };
 
 GH.StyleScanner.prototype.get_styling = function() {
-	var tableStyle = null;
-	if (this.table) {
-		tableStyle = this.table.output();
-		tableStyle.splice(0, 1);
-	}
-	return new GH.styling(tableStyle, this.title, this.suggest);
+    var tableStyle = null;
+    if (this.table) {
+        tableStyle = this.table.output();
+        tableStyle.splice(0, 1);
+    }
+    return new GH.styling(tableStyle, this.title, this.suggest);
 };
 
 GH.StyleScanner.prototype.clear = function() {
-	this.table = null;
-	this.title = '';
-	this.suggest = null;
+    this.table = null;
+    this.title = '';
+    this.suggest = null;
 }
 
 GH.StyleScanner.prototype.addSuggestToken = function(tok) {
-	var modeTypes = GH.StyleScanner.modeTypes;
-	if (tok == '(') {
-		this.styleMode = modeTypes.SUGGEST_FUNC;
-	} else if (tok == ')') {
-		this.styleMode = modeTypes.SUGGEST;
-	} else {
-		if (this.styleMode == modeTypes.SUGGEST) {
-			this.suggest.push([]);
-		}
-		this.suggest[this.suggest.length - 1].push(tok);
-	}
+    var modeTypes = GH.StyleScanner.modeTypes;
+    if (tok == '(') {
+        this.styleMode = modeTypes.SUGGEST_FUNC;
+    } else if (tok == ')') {
+        this.styleMode = modeTypes.SUGGEST;
+    } else {
+        if (this.styleMode == modeTypes.SUGGEST) {
+            this.suggest.push([]);
+        }
+        this.suggest[this.suggest.length - 1].push(tok);
+    }
 
 };
 
 GH.StyleScanner.prototype.read_styling = function(line) {
-	var splitLine = line.split('##');
-	if (splitLine.length != 2) {
-		return;
-	}
-	line = splitLine[1];
-	var initialLength = this.table ? this.table.length : 0;
-	var styleModeTypes = GH.StyleScanner.modeTypes;
-	var toks = line.split(/[ \t]+/);
-	for (var i = 0; i < toks.length; i++) {
-		var tok = toks[i];
-		if (tok == '<table>') {
-			this.styleMode = styleModeTypes.TABLE;
-			this.table = new GH.tableExpression(null, 'root', 0, '');
-		} else if (tok == '</table>') {
-			// TODO: Add test that there are an equal number of columns.
-			if (this.leftColumns != 0) {
-				alert('Unattached left columns');
-				this.leftColumns = 0;
-			}
-			this.styleMode = styleModeTypes.NONE;
-		} else if (tok == '<title>') {
-			this.title = '';
-			this.styleMode = styleModeTypes.TITLE;
-		} else if (tok == '</title>') {
-			this.styleMode = styleModeTypes.NONE;
-		} else if (tok == '<summary>') {
-			this.summary = '';
-			this.styleMode = styleModeTypes.SUMMARY;
-		} else if (tok == '</summary>') {
-			this.styleMode = styleModeTypes.NONE;
-		} else if (tok == '<suggest>') {
-			this.suggest = [];
-			this.styleMode = styleModeTypes.SUGGEST;
-		} else if (tok == '</suggest>') {
-			this.styleMode = styleModeTypes.NONE;
-		} else if (this.styleMode == styleModeTypes.TABLE) {
-			this.read_column_style(tok);
-		} else if (this.styleMode == styleModeTypes.TITLE) {
-			this.title += tok + ' ';
-		} else if (this.styleMode == styleModeTypes.SUMMARY) {
-			this.summary += tok + ' ';
-		} else if ((this.styleMode == styleModeTypes.SUGGEST) ||
-		           (this.styleMode == styleModeTypes.SUGGEST_FUNC)) {
-			this.addSuggestToken(tok);
-		}
-	}
+    var splitLine = line.split('##');
+    if (splitLine.length != 2) {
+        return;
+    }
+    line = splitLine[1];
+    var initialLength = this.table ? this.table.length : 0;
+    var styleModeTypes = GH.StyleScanner.modeTypes;
+    var toks = line.split(/[ \t]+/);
+    for (var i = 0; i < toks.length; i++) {
+        var tok = toks[i];
+        if (tok == '<table>') {
+            this.styleMode = styleModeTypes.TABLE;
+            this.table = new GH.tableExpression(null, 'root', 0, '');
+        } else if (tok == '</table>') {
+            // TODO: Add test that there are an equal number of columns.
+            if (this.leftColumns != 0) {
+                alert('Unattached left columns');
+                this.leftColumns = 0;
+            }
+            this.styleMode = styleModeTypes.NONE;
+        } else if (tok == '<title>') {
+            this.title = '';
+            this.styleMode = styleModeTypes.TITLE;
+        } else if (tok == '</title>') {
+            this.styleMode = styleModeTypes.NONE;
+        } else if (tok == '<summary>') {
+            this.summary = '';
+            this.styleMode = styleModeTypes.SUMMARY;
+        } else if (tok == '</summary>') {
+            this.styleMode = styleModeTypes.NONE;
+        } else if (tok == '<suggest>') {
+            this.suggest = [];
+            this.styleMode = styleModeTypes.SUGGEST;
+        } else if (tok == '</suggest>') {
+            this.styleMode = styleModeTypes.NONE;
+        } else if (this.styleMode == styleModeTypes.TABLE) {
+            this.read_column_style(tok);
+        } else if (this.styleMode == styleModeTypes.TITLE) {
+            this.title += tok + ' ';
+        } else if (this.styleMode == styleModeTypes.SUMMARY) {
+            this.summary += tok + ' ';
+        } else if ((this.styleMode == styleModeTypes.SUGGEST) ||
+                   (this.styleMode == styleModeTypes.SUGGEST_FUNC)) {
+            this.addSuggestToken(tok);
+        }
+    }
 };
 
 GH.Scanner.prototype.get_tok = function() {
@@ -197,7 +198,7 @@ GH.Scanner.prototype.get_tok = function() {
         var line = this.lines[this.lineno];
         this.lineno++;
         line = line.replace(/\(|\)/g, ' $& ');
-		this.styleScanner.read_styling(line);
+        this.styleScanner.read_styling(line);
         line = line.split('#')[0];
         this.toks = line.split(/[ \t]+/);
         this.tokix = this.toks[0] == '' ? 1 : 0;
@@ -211,51 +212,51 @@ GH.Scanner.prototype.get_tok = function() {
 };
 
 GH.tableExpression = function(parent, expression, leftColumns, color) {
-	this.parent = parent;
-	this.expression = expression;
-	this.color = color;
-	this.rightColumns = '';
-	this.leftColumns = '';
-	for (var i = 0; i < leftColumns; i++) {
-		this.leftColumns += '</td><td>';
-	}
-	this.children = [];
+    this.parent = parent;
+    this.expression = expression;
+    this.color = color;
+    this.rightColumns = '';
+    this.leftColumns = '';
+    for (var i = 0; i < leftColumns; i++) {
+        this.leftColumns += '</td><td>';
+    }
+    this.children = [];
 };
 
 GH.tableExpression.prototype.addExpression = function(tok, leftColumns, color) {
-	if (this.expression == null) {
-		this.expression = tok;
-	} else {
-		this.children.push(new GH.tableExpression(this, tok, leftColumns, color));
-	}
+    if (this.expression == null) {
+        this.expression = tok;
+    } else {
+        this.children.push(new GH.tableExpression(this, tok, leftColumns, color));
+    }
 };
 
 GH.tableExpression.prototype.addRightColumn = function() {
-	this.children[this.children.length - 1].rightColumns += '</td><td>';
+    this.children[this.children.length - 1].rightColumns += '</td><td>';
 };
 
 GH.tableExpression.prototype.output = function() {
-	var result;
-	if (this.children.length > 0) {
-		var result = [this.expression];
-		for (var i = 0; i < this.children.length; i++) {
-			result.push(this.children[i].output());
-		}
-	} else {
-		result = this.expression;
-	}
+    var result;
+    if (this.children.length > 0) {
+        var result = [this.expression];
+        for (var i = 0; i < this.children.length; i++) {
+            result.push(this.children[i].output());
+        }
+    } else {
+        result = this.expression;
+    }
 
-	if (this.color != '') {
-		result = ['htmlSpan', this.color, result];
-	}
-	if ((this.leftColumns != '') || (this.rightColumns != '')) {
-		result = ['table', this.leftColumns, result, this.rightColumns];
-	}
-	return result;
+    if (this.color != '') {
+        result = ['htmlSpan', this.color, result];
+    }
+    if ((this.leftColumns != '') || (this.rightColumns != '')) {
+        result = ['table', this.leftColumns, result, this.rightColumns];
+    }
+    return result;
 };
 
 GH.read_sexp = function(scanner) {
-	scanner.table = null;
+    scanner.table = null;
     while (1) {
         var tok = scanner.get_tok();
         if (tok == null) {
@@ -438,8 +439,8 @@ GH.term_common = function(tkind, tsig, freespecs,  kinds, terms, syms) {
 
 GH.ProofCtx = function() {
     this.stack = [];
-	this.stackHistory = [];
-	this.hierarchy = new GH.ProofHierarchy(null, 0);
+    this.stackHistory = [];
+    this.hierarchy = new GH.ProofHierarchy(null, 0);
     this.mandstack = [];
     this.defterm = null;
 };
@@ -452,7 +453,7 @@ GH.VerifyCtx = function(urlctx, run) {
     this.urlctx = urlctx;
     this.run = run;
     this.suppress_errors = false;
-	this.error_step = null;
+    this.error_step = null;
 };
 
 GH.VerifyCtx.prototype.set_suppress_errors = function(flag) {
@@ -1043,7 +1044,7 @@ GH.VerifyCtx.prototype.check_proof = function(proofctx,
 
 GH.VerifyCtx.prototype.check_proof_step = function(hypmap, step, proofctx, tagName) {
     var kind;
-	this.error_step = null;
+    this.error_step = null;
     if (GH.typeOf(step) != 'string') {
         kind = this.kind_of(step, proofctx.varlist, proofctx.varmap, false,
                             this.syms);
@@ -1054,14 +1055,14 @@ GH.VerifyCtx.prototype.check_proof_step = function(hypmap, step, proofctx, tagNa
         if (proofctx.mandstack.length != 0) {
             throw 'Hyp expected no mand hyps, got ' + proofctx.mandstack.length;
         }
-		var hyp = hypmap[step];
-		proofctx.stack.push(hyp);
-		var styling = tagName ? new GH.styling(null, tagName, '') : null;
-		var proofStep = new GH.ProofStep(step, [], hyp, step.beg, step.end, proofctx.mandstack, false, false, styling);
-		proofctx.stackHistory.push(proofStep);
-		var hierarchy = proofctx.hierarchy;
-		hierarchy.appendChild(new GH.ProofHierarchy(proofStep, proofStep.begin));
-		return;
+        var hyp = hypmap[step];
+        proofctx.stack.push(hyp);
+        var styling = tagName ? new GH.styling(null, tagName, '') : null;
+        var proofStep = new GH.ProofStep(step, [], hyp, step.beg, step.end, proofctx.mandstack, false, false, styling);
+        proofctx.stackHistory.push(proofStep);
+        var hierarchy = proofctx.hierarchy;
+        hierarchy.appendChild(new GH.ProofHierarchy(proofStep, proofStep.begin));
+        return;
     }
     if (!this.syms.hasOwnProperty(step)) {
         throw step + " - Unknown Step";
@@ -1076,37 +1077,37 @@ GH.VerifyCtx.prototype.check_proof_step = function(hypmap, step, proofctx, tagNa
         return;
     } 
     // This test is now likely redundant...
-	if (v[0] == 'stmt' || v[0] == 'thm') {
-		var result = this.match_inference(v, proofctx, proofctx.mandstack);
-		var sp = proofctx.stack.length - v[2].length;
-		proofctx.stack.splice(sp);
-		proofctx.stack.push(result);
+    if (v[0] == 'stmt' || v[0] == 'thm') {
+        var result = this.match_inference(v, proofctx, proofctx.mandstack);
+        var sp = proofctx.stack.length - v[2].length;
+        proofctx.stack.splice(sp);
+        proofctx.stack.push(result);
 
-		var removed = proofctx.stackHistory.splice(sp);
-		var isThm = (v[0] == 'thm');
-		var styling = v[6] ? v[6] : new GH.styling(null, null, '');
-		if (tagName) {
-			styling = new GH.styling(styling.table, tagName, '');
-		}
-		var proofStep = new GH.ProofStep(step, removed, result, step.beg, step.end, proofctx.mandstack, false, isThm, styling);
-		proofctx.stackHistory.push(proofStep);
-		var hierarchy = proofctx.hierarchy;		
-		hierarchy.appendChild(new GH.ProofHierarchy(proofStep, proofStep.begin));
-		var reparented = false;
-		for (var i = 0; i < removed.length; i++) {
-			if (removed[i].hierarchy.parent == proofStep.hierarchy.parent) {
-				removed[i].hierarchy.reparent(proofStep.hierarchy);
-				reparented = true;
-			}
-		}
-		if (reparented) {
-			// Remove the step we just added and add it as a child instead.
-			var newHierarchy = new GH.ProofHierarchy(proofStep, proofStep.begin);
-			var lastChild = hierarchy.children[hierarchy.children.length - 1];
-			lastChild.appendChild(newHierarchy);
-			lastChild.step = null;
-		}
-		proofctx.mandstack = [];
+        var removed = proofctx.stackHistory.splice(sp);
+        var isThm = (v[0] == 'thm');
+        var styling = v[6] ? v[6] : new GH.styling(null, null, '');
+        if (tagName) {
+            styling = new GH.styling(styling.table, tagName, '');
+        }
+        var proofStep = new GH.ProofStep(step, removed, result, step.beg, step.end, proofctx.mandstack, false, isThm, styling);
+        proofctx.stackHistory.push(proofStep);
+        var hierarchy = proofctx.hierarchy;     
+        hierarchy.appendChild(new GH.ProofHierarchy(proofStep, proofStep.begin));
+        var reparented = false;
+        for (var i = 0; i < removed.length; i++) {
+            if (removed[i].hierarchy.parent == proofStep.hierarchy.parent) {
+                removed[i].hierarchy.reparent(proofStep.hierarchy);
+                reparented = true;
+            }
+        }
+        if (reparented) {
+            // Remove the step we just added and add it as a child instead.
+            var newHierarchy = new GH.ProofHierarchy(proofStep, proofStep.begin);
+            var lastChild = hierarchy.children[hierarchy.children.length - 1];
+            lastChild.appendChild(newHierarchy);
+            lastChild.step = null;
+        }
+        proofctx.mandstack = [];
     }
 };
 
@@ -1117,7 +1118,7 @@ GH.VerifyCtx.prototype.match_inference = function(v, proofctx, mandstack) {
         var mand = v[4];
         var syms = v[5];
         if (mand.length != mandstack.length) {
-			this.error_step = v;
+            this.error_step = v;
             throw 'Expected ' + mand.length + ' mand hyps, got ' + mandstack.length;
         }
         var env = {};
@@ -1126,12 +1127,12 @@ GH.VerifyCtx.prototype.match_inference = function(v, proofctx, mandstack) {
             var mv = mand[i];
             el = mandstack[i];
             if (el[0][1] != mv[1]) {
-				this.error_step = v;
+                this.error_step = v;
                 throw ('Kind mismatch for ' + mv[2] + ': expected ' +
                        mv[1] + ' but found ' + el[0][2] + ' which is a ' + el[0][1]);
             }
             if (mv[0] == 'var' && el[0][0] != 'var') {
-				this.error_step = v;
+                this.error_step = v;
                 throw ('Unifying, expected expression substituted for mandatory variable ' +
                        mv[2] + ' to be a binding variable, but found ' +
                        GH.sexp_to_string(el[1]));
