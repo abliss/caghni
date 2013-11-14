@@ -111,7 +111,7 @@ ConvertVerifyCtx.prototype.check_proof = function(proofctx,
                                                   dkind, dsig) {
     var thmSexp = [];
     if (dkind) { // defthms
-        thmSexp.push(label, dkind, dsig);
+        thmSexp.push(this.renameTheorem(label, fv, hyps, stmt), dkind, dsig);
         this.write("defthm ");
     } else {
         thmSexp.push(this.renameTheorem(label, fv, hyps, stmt));
