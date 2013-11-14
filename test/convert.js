@@ -109,24 +109,31 @@ ConvertVerifyCtx.prototype.do_cmd = function(cmd, arg, styling) {
 ConvertVerifyCtx.prototype.check_proof = function(proofctx,
                                                   label, fv, hyps, stmt, proof,
                                                   dkind, dsig) {
+    // Rename hypotheses to h0,h1,...,hn
+    var hypsMap = {};
+    var newHyps = hyps.slice();
+    for (var i = 0; i < hyps.length / 2; i++) {
+        var newName = "h" + i;
+        hypsMap[hyps[2 * i]] = newName;
+        newHyps[2 * i] = newName;
+    }
+    var that = this;
+    var newProof = proof.map(function(step) {
+        var newName = hypsMap[step];
+        if (!newName) newName = that.getNewName(step);
+        return newName;
+    });
+
     var thmSexp = [];
     if (dkind) { // defthms
-        thmSexp.push(this.renameTheorem(label, fv, hyps, stmt), dkind, dsig);
+        thmSexp.push(this.renameTheorem(label, fv, newHyps, stmt), dkind, dsig);
         this.write("defthm ");
     } else {
-        thmSexp.push(this.renameTheorem(label, fv, hyps, stmt));
+        thmSexp.push(this.renameTheorem(label, fv, newHyps, stmt));
         this.write("thm ");
     }
 
-    // We must not rename hypotheses, even if they are also thm names
-    var hypsMap = {};
-    hyps.forEach(function(hyp) { hypsMap[hyp] = 1; });
-    var that = this;
-    var newProof = proof.map(function(step) {
-        return hypsMap[step] ? step : that.getNewName(step);
-    });
-
-    thmSexp.push(fv, hyps, stmt);
+    thmSexp.push(fv, newHyps, stmt);
     thmSexp.push.apply(thmSexp, newProof);
     this.write(GH.sexp_to_string(thmSexp) + "\n");
 
