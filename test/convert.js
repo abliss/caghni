@@ -7,6 +7,14 @@
  */
 
 var VERSION = 1;
+/**
+ * Version 1:
+ * - all thms and defthms are renamed to the JSON.stringify of their
+ *   sexps (including dvs and hyps).
+ * - Hypotheses are changed to hyp0, hyp1, ....
+ * - variables are changed to kind.[t]0, kind.[t]1, ... (not in interfaces)R
+ * - Exported interfaces are updated; Imported interfaces are not.
+ */
 
 var Process = process;
 var Path = require('path');
@@ -62,7 +70,7 @@ function ConvertVerifyCtx(urlCtx) {
             context.do_cmd(command, arg, styling);
             scanner.styleScanner.clear();
             command = GH.read_sexp(scanner);
-        } 
+        }
     }
 
     var exportedInterfaces = {};
@@ -88,6 +96,14 @@ function ConvertVerifyCtx(urlCtx) {
         // TODO: clone for saftey.
         exportedInterfaces[inter] = thmRenameMap;
     }
+    // Get the num'th normalized var-name for the given kind.
+    this.getVarName = function(kind, cmd, num) {
+        var name = this.get_kind(kind);
+        name += '.';
+        if (cmd == 'tvar') name += "t";
+        name += num;
+        return name;
+    }
 }
 
 ConvertVerifyCtx.prototype = new GH.VerifyCtx();
@@ -95,8 +111,18 @@ ConvertVerifyCtx.prototype.constructor = ConvertVerifyCtx;
 
 ConvertVerifyCtx.prototype.do_cmd = function(cmd, arg, styling) {
     if (('thm' == cmd) || ('defthm' == cmd)) {
-        // [def]thm commands are written in check_proof; others copied verbatim
+        // [def]thm commands are written in check_proof;
+    } else if (('var' == cmd) || ('tvar' == cmd)) {
+        // vars renamed based on kind
+        // TODO: currently assuming only one var/tvar per kind
+        var newArg = arg.slice();
+        var kind = arg[0];
+        for (var i = 0; i + 1 < newArg.length; i++) {
+            newArg[i + 1] = this.getVarName(kind, cmd, i);
+        }
+        this.write(cmd + " " + GH.sexp_to_string(newArg) + "\n");
     } else {
+        // others copied verbatim
         if ('export' == cmd) {
             // TODO: clean out old ones, provide means for accessing unexported
             this.exportInterface(arg[1]);
@@ -124,16 +150,69 @@ ConvertVerifyCtx.prototype.check_proof = function(proofctx,
         return newName;
     });
 
+    // Rename variables to kind.[t]0, kind.[t]1, ...
+    var varsMap = {};
+    var kindToVarNum = {}
+    // Returns a new sexp with each of the var terms renamed.
+    function varMapSexp(sexp) {
+        if (GH.typeOf(sexp) == 'string') {
+            var name = varsMap[sexp];
+            if (name) return name;
+            var sym = that.syms[sexp];
+            if (sym && (sym[0] == 'var' || sym[0] == 'tvar')) {
+                var cmd = sym[0];
+                var kind = sym[1];
+                var num = kindToVarNum[kind + cmd] || 0;
+                name = that.getVarName(kind, cmd, num);
+                kindToVarNum[kind + cmd] = num + 1;
+                varsMap[sexp] = name;
+                return name;
+            } else {
+                // it's not a var, don't touch it
+                if (("" + sexp).match(/null/)) {
+                    throw new Error("XXXX wtf? " + sexp);
+                }
+                return sexp;
+            }
+        } else {
+            return sexp.map(varMapSexp);
+        }
+    }
+    // Like varMapSexp, but skips the first element in each sexp since it is a
+    // term, and terms can unfortunately have the same name as variables (e.g. S
+    // and T)
+    function varMapTerm(term) {
+        if (GH.typeOf(term) == 'string') {
+            return varMapSexp(term);
+        } else {
+            var out = term.slice(1).map(varMapTerm);
+            out.unshift(term[0]);
+            return out;
+        }
+    }
+    for (var i = 1; i < hyps.length; i+= 2) {
+        newHyps[i] = varMapTerm(hyps[i]);
+    }
+
+    var newStmt = varMapTerm(stmt);
+    var newFv = varMapSexp(fv);
+
+    newProof.unshift("  "); // so we can safely use varMapTerm
+    newProof = varMapTerm(newProof);
+    // Rename thm label to sexp json
     var thmSexp = [];
+    this.write("# Was: " + label + "\n");
     if (dkind) { // defthms
-        thmSexp.push(this.renameTheorem(label, fv, newHyps, stmt), dkind, dsig);
+        newDsig = varMapSexp(dsig);
+        thmSexp.push(this.renameTheorem(label, newFv, newHyps, newStmt),
+                     dkind, newDsig);
         this.write("defthm ");
     } else {
-        thmSexp.push(this.renameTheorem(label, fv, newHyps, stmt));
+        thmSexp.push(this.renameTheorem(label, newFv, newHyps, newStmt));
         this.write("thm ");
     }
 
-    thmSexp.push(fv, newHyps, stmt);
+    thmSexp.push(newFv, newHyps, newStmt);
     thmSexp.push.apply(thmSexp, newProof);
     this.write(GH.sexp_to_string(thmSexp) + "\n");
 
@@ -145,7 +224,7 @@ ConvertVerifyCtx.prototype.get_export_ctx = function(prefix, pifs) {
     return new ConvertExportCtx(this, prefix, pifs);
 };
 
-// A subclass of GH.ExportCtx which converts exported stmts according to the 
+// A subclass of GH.ExportCtx which converts exported stmts according to the
 // given map.
 function ConvertExportCtx(verify, prefix, params, writer, renameMap) {
     GH.InterfaceCtx.call(this, verify, prefix, params);
@@ -213,7 +292,7 @@ function processGhilbertModule(moduleName) {
     }
     Fs.mkdirSync(Path.join(outDir, moduleName));
     var urlCtx = new NodeUrlContext(Path.join(inDir, moduleName));
-    
+
     var files = Fs.readdirSync(Path.join(inDir, moduleName));
     files.forEach(processProofFile);
     files.forEach(processInterfaceFile);

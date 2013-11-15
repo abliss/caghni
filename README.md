@@ -13,4 +13,10 @@ The idea of caghni is to build a Ghilbert-compatable (or nearly-so) convention f
 
 # Current Status
 
-A small script is provided which parses a ghilbert module and produces a verifiable output. In version 1, the names of thms, defthms, and stmts are standardized.
+A small script is provided which parses a ghilbert module and produces a verifiable output. In version 1, the following names are standardized:
+
+* the label of thms, defthms, and stmts
+* the label of hyps within a thm or defthm
+* the names of variables
+
+Exported interfaces are updated so that peano_thms.gh matches. Imported interfaces are currently not changed. 
