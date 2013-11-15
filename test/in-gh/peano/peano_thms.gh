@@ -7,7 +7,7 @@ import (PEANO_MIN peano_min.ghi (PROP) "")
 # import (PROP /peano/prop.ghi () "")
 # import (PEANO_MIN /peano/peano_min.ghi (PROP) "")
 
-tvar (wff ph ps ch th ta et ph' ps' ch' th' ta')
+tvar (wff ph ps ch th ta et ph' ps' ch' th' ta' zi si)
 tvar (nat A B C D A' B' C' D' A0 A1 A2 A3 i j k)
 var (nat v w x y z v' w' x' y' z')
 
@@ -4634,7 +4634,6 @@ export (PEANO /peano/peano_ax.ghi (PROP PEANO_MIN) "")
 import (NAIVE_SET /peano/naive_set.ghi (PROP PEANO_MIN PEANO) "")
 
 tvar (set S T U V S0 S1 S2 S3 S4 S5 S6 S7 S8 S9)
-tvar (wff zi si)
 
 
 
