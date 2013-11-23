@@ -30,30 +30,27 @@ In peano/peano_thms.gh, thm `alnex` is proved using `df-ex`:
 In caghni V2, this will become:
 
     {{alnex}} = {
-      conc: {
-        dvs:  [],
-        hyps: [],
-        term: [o.0,[o.1, v.0.0,[o.2, t.1.0],[o.2,[o.3, v.0.0, t.1.0]]]],
+      bone: {
+         stmt: [0,[1,"v0.0",[2,"t1.0"],[2,[3,"v0.0","t1.0"]]]],
+         hyps: [],
+         free: [],
       },
-      style: {
-         o: ["<->", "A.", "-.", "E."],
-         k: ["nat", "wff"],
+      meat: {
+         terms: ["<->", "A.", "-.", "E."],
+         kinds: ["nat", "wff"],
+      },
+      skin: {
          v: [["x"]],
          t: [[],["ph"]],
+         name: "alnex",
+         hypNames: [],
+         license: "public domain",
+         delimiters: [...],    // preserves whitespace and comments
       },
-      depends: [{{df-ex}}, {{conb2bii}}],
-      cmd: "thm",
-      proof: [v.0.0.0, v.1.1.0, depends.0, depends.1],
-      location: {
-        corpus: "d2005a:peano/",
-        file: "peano_thms.gh",
-        line: 230,
-      },
-      metadata: {
-        comment: "# aka 19.7",
-        license: "public domain",
-        name: "alnex",
-        proofDelimiters: [...],    // preserves whitespace and comments
+      tree: {
+         cmd: "thm",
+         deps: [{{df-ex}}, {{conb2bii}}],
+         proof: [v0.0, t1.0, deps.0, deps.1],
       },
     }
     

@@ -6,20 +6,18 @@
  * from the indir.
  */
 
-var VERSION = 1;
+var VERSION = 2;
 /**
- * Version 1:
- * - all thms and defthms are renamed to the JSON.stringify of their
- *   sexps (including dvs and hyps).
- * - Hypotheses are changed to hyp0, hyp1, ....
- * - variables are changed to kind.[t]0, kind.[t]1, ... (not in interfaces)R
- * - Exported interfaces are updated; Imported interfaces are not.
+ * Version 2: Builds a LevelDB of all content (see README.md for
+ * schema). Capable of recreating the inputs byte-for-byte; also capable of
+ * translating a thm (with proof) from one ghilbert corpus to another.
  */
 
 var Process = process;
 var Path = require('path');
 var Fs = require('fs');
 var Rimraf = require('rimraf');
+var Fact = require('./fact.js');
 
 GH = global.GH = {};
 global.log = console.log;
@@ -40,6 +38,8 @@ Fs.mkdirSync(outDir);
 
 var inDir = Process.argv[2];
 
+
+
 function NodeUrlContext(rootDir) {
     this.resolve = function(url) {
         // TODO(abliss): sometimes the path has repeats?
@@ -54,7 +54,8 @@ function NodeUrlContext(rootDir) {
 // and emits them to the given writer.
 function ConvertVerifyCtx(urlCtx) {
     this.urlctx = urlCtx;
-
+    this.factsByLabel = {};
+    this.factsByKey = {};
     var ghText = "";
     this.write = function(str) { ghText += str; };
     this.getGhText = function() { return ghText; }
@@ -111,15 +112,17 @@ ConvertVerifyCtx.prototype.constructor = ConvertVerifyCtx;
 
 ConvertVerifyCtx.prototype.do_cmd = function(cmd, arg, styling) {
     if (('thm' == cmd) || ('defthm' == cmd)) {
-        // [def]thm commands are written in check_proof;
+        // handled elsewhere
     } else if (('var' == cmd) || ('tvar' == cmd)) {
         // vars renamed based on kind
         // TODO: currently assuming only one var/tvar per kind
         var newArg = arg.slice();
+/* XXX
         var kind = arg[0];
         for (var i = 0; i + 1 < newArg.length; i++) {
             newArg[i + 1] = this.getVarName(kind, cmd, i);
         }
+*/
         this.write(cmd + " " + GH.sexp_to_string(newArg) + "\n");
     } else {
         // others copied verbatim
@@ -132,91 +135,167 @@ ConvertVerifyCtx.prototype.do_cmd = function(cmd, arg, styling) {
     GH.VerifyCtx.prototype.do_cmd.apply(this, arguments);
 };
 
+
+// Maps tokens to sequential IDs starting at 0
+function Map() {
+    var obj = {};
+    var keys = [];
+    this.put = function(tok) {
+        if (obj.hasOwnProperty(tok)) {
+            return obj[tok];
+        }
+        var id = keys.length;
+        obj[tok] = id;
+        keys.push(tok);
+        return id;
+    };
+    this.has = function(tok) {
+        return obj.hasOwnProperty(tok);
+    };
+    this.toJSON = function() {
+        return JSON.stringify(keys);
+    }
+}
+
+// Maintains named Maps for tokens
+function Style() {
+    var maps = {};
+    this.map = function(typ) {
+        return maps.hasOwnProperty(typ) ? maps[typ] : (maps[typ] = new Map());
+    }
+    this.toJSON = function() {
+        return JSON.stringify(maps);
+    }
+}
+
+ConvertVerifyCtx.prototype.populateFact = function(fact, fv, hyps, stmt, proof,
+                                                   dkind, dsig, syms) {
+    var that = this;
+
+    // Given a sexp, return the same sexp with each leaf that is a symbol
+    // renamed according to the current fact.
+   function symMapSexp(sexp) {
+        if (GH.typeOf(sexp) != 'string') {
+            return sexp.map(symMapSexp);
+        }
+       var sym = syms[sexp];
+       if (!sym) {
+           // it's not a sym, don't touch it
+           return sexp;
+       }
+       var cmd = sym[0];
+       switch(cmd) {
+       case 'var':
+       case 'tvar':
+           var kind = sym[1];
+           return fact.nameVar(cmd, kind, sexp);
+       case 'thm':
+       case 'defthm':
+       case 'stmt':
+           var depFact = that.factsByLabel[sexp];
+           var depName = fact.nameDep(sexp, depFact);
+           if (!depFact) throw new Error("unknown dep " + sexp);
+           return depName;
+       default:
+           throw new Error("Unknown symbol cmd " + cmd + " " + sexp);
+       }
+   }
+    
+    // Like symMapSexp, but tries to map the first element of each sexp as an
+    // operator.
+    function mapSexp(sexp) {
+        if (GH.typeOf(sexp) == 'string') {
+            return symMapSexp(sexp);
+        }
+        var term = sexp[0];
+        if (that.terms.hasOwnProperty(term) ||
+            (dsig && (dsig[0] === term))) {
+            term = fact.nameTerm(term);
+        }
+        var out = sexp.slice(1).map(mapSexp);
+        out.unshift(term);
+        return out;
+    }
+
+    fact.setStmt(mapSexp(stmt));
+
+    // Rename hypotheses to hyps.$hypNum
+    var hypMap = {};
+    var newHyps = [];
+    for (var i = 0; i < hyps.length; i ++) {
+        if (proof) { // stmts don't name hyps
+            var hypName = hyps[i++];
+            hypMap[hypName] = fact.nameHyp(hypName);
+        }
+        
+        newHyps.push(mapSexp(hyps[i]));
+    }
+    fact.setHyps(newHyps);
+    fact.setFree(symMapSexp(fv));
+
+    function mapProofStep(step) {
+        if (GH.typeOf(step) == 'string') {
+            // TODO: check the ordering here. Namespaces overlap.
+            if (hypMap.hasOwnProperty(step)) {
+                return hypMap[step];
+            } else {
+                return symMapSexp(step);
+            }
+        } else {
+            return mapSexp(step);
+        }
+    }
+
+    if (proof) {
+        fact.setProof(proof.map(mapProofStep));
+    }
+
+    if (dkind) { // defthms
+        fact.setDkind(fact.nameKind(dkind));
+        var newDsig = mapSexp(dsig);
+        newDsig[0] = fact.nameTerm(dsig[0]);
+        fact.setDsig(newDsig);
+    }
+};
+
+ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
+                varlist, num_hypvars, num_nondummies, syms, styling) {
+    var proof, dkind, dsig;
+    var myHyps = hyps, myKw = kw;
+    if (this.lastProofChecked) {
+        proof = this.lastProofChecked.proof;
+        dkind = this.lastProofChecked.dkind;
+        dsig = this.lastProofChecked.dsig;
+        if (dkind) {
+            myKw = 'defthm';
+        }
+        myHyps = this.lastProofChecked.hyps;
+        delete this.lastProofChecked;
+    }
+    var fact = Fact().setCmd(myKw).setName(label);
+    this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
+    if (proof) {
+        this.write(fact.toGhilbert(this.factsByKey));
+    }
+    this.factsByLabel[label] = fact;
+    this.factsByKey[fact.getKey()] = fact;
+    // super()
+    GH.VerifyCtx.prototype.add_assertion.apply(this, arguments);
+
+}
+
 ConvertVerifyCtx.prototype.check_proof = function(proofctx,
                                                   label, fv, hyps, stmt, proof,
                                                   dkind, dsig) {
-    // Rename hypotheses to h0,h1,...,hn
-    var hypsMap = {};
-    var newHyps = hyps.slice();
-    for (var i = 0; i < hyps.length / 2; i++) {
-        var newName = "h" + i;
-        hypsMap[hyps[2 * i]] = newName;
-        newHyps[2 * i] = newName;
-    }
-    var that = this;
-    var newProof = proof.map(function(step) {
-        var newName = hypsMap[step];
-        if (!newName) newName = that.getNewName(step);
-        return newName;
-    });
+    // Stash these since they are not available from add_assertion
+    this.lastProofChecked = {
+        proof: proof,
+        dkind: dkind,
+        dsig: dsig,
+        hyps: hyps,
+    };
 
-    // Rename variables to kind.[t]0, kind.[t]1, ...
-    var varsMap = {};
-    var kindToVarNum = {}
-    // Returns a new sexp with each of the var terms renamed.
-    function varMapSexp(sexp) {
-        if (GH.typeOf(sexp) == 'string') {
-            var name = varsMap[sexp];
-            if (name) return name;
-            var sym = that.syms[sexp];
-            if (sym && (sym[0] == 'var' || sym[0] == 'tvar')) {
-                var cmd = sym[0];
-                var kind = sym[1];
-                var num = kindToVarNum[kind + cmd] || 0;
-                name = that.getVarName(kind, cmd, num);
-                kindToVarNum[kind + cmd] = num + 1;
-                varsMap[sexp] = name;
-                return name;
-            } else {
-                // it's not a var, don't touch it
-                if (("" + sexp).match(/null/)) {
-                    throw new Error("XXXX wtf? " + sexp);
-                }
-                return sexp;
-            }
-        } else {
-            return sexp.map(varMapSexp);
-        }
-    }
-    // Like varMapSexp, but skips the first element in each sexp since it is a
-    // term, and terms can unfortunately have the same name as variables (e.g. S
-    // and T)
-    function varMapTerm(term) {
-        if (GH.typeOf(term) == 'string') {
-            return varMapSexp(term);
-        } else {
-            var out = term.slice(1).map(varMapTerm);
-            out.unshift(term[0]);
-            return out;
-        }
-    }
-    for (var i = 1; i < hyps.length; i+= 2) {
-        newHyps[i] = varMapTerm(hyps[i]);
-    }
-
-    var newStmt = varMapTerm(stmt);
-    var newFv = varMapSexp(fv);
-
-    newProof.unshift("  "); // so we can safely use varMapTerm
-    newProof = varMapTerm(newProof);
-    // Rename thm label to sexp json
-    var thmSexp = [];
-    this.write("# Was: " + label + "\n");
-    if (dkind) { // defthms
-        newDsig = varMapSexp(dsig);
-        thmSexp.push(this.renameTheorem(label, newFv, newHyps, newStmt),
-                     dkind, newDsig);
-        this.write("defthm ");
-    } else {
-        thmSexp.push(this.renameTheorem(label, newFv, newHyps, newStmt));
-        this.write("thm ");
-    }
-
-    thmSexp.push(newFv, newHyps, newStmt);
-    thmSexp.push.apply(thmSexp, newProof);
-    this.write(GH.sexp_to_string(thmSexp) + "\n");
-
-    // super
+    // super()
     GH.VerifyCtx.prototype.check_proof.apply(this, arguments);
 };
 
@@ -245,10 +324,8 @@ ConvertExportCtx.prototype.do_cmd = function(cmd, arg, styling) {
         newArg[0] = this.verify.getNewName(arg[0]);
     }
     this.write(cmd + " " + GH.sexp_to_string(newArg) + "\n");
-    GH.ExportCtx.prototype.do_cmd.apply(this, arguments);
-
     // super
-
+    GH.ExportCtx.prototype.do_cmd.apply(this, arguments);
 }
 
 
