@@ -16,6 +16,7 @@ var VERSION = 2;
 var Process = process;
 var Path = require('path');
 var Fs = require('fs');
+var Crypto = require('crypto');
 var Rimraf = require('rimraf');
 var Fact = require('./fact.js');
 
@@ -36,6 +37,18 @@ if (args.length != 3) {
 Rimraf.sync(outDir);
 Fs.mkdirSync(outDir);
 
+var Level = require('level');
+var factsDb = Level(Path.join(outDir, 'facts.leveldb'));
+
+function makeDbKey(fact) {
+    var factJson = JSON.stringify(fact);
+    var hash = Crypto.createHash('sha1');
+    hash.update(factJson);
+    var sha1 = hash.digest('hex');
+    var key = JSON.stringify(fact.getKey()) + "!" + sha1;
+    return key;
+}
+
 var inDir = Process.argv[2];
 
 
@@ -55,10 +68,6 @@ function NodeUrlContext(rootDir) {
 function ConvertVerifyCtx(urlCtx) {
     this.urlctx = urlCtx;
     this.factsByLabel = {};
-    this.factsByKey = {};
-    var ghText = "";
-    this.write = function(str) { ghText += str; };
-    this.getGhText = function() { return ghText; }
     this.run = function(urlContext, url, context) {
         context.runUrl = url;
         var scanner = new GH.Scanner(urlContext.resolve(url).split(/\r?\n/));
@@ -123,14 +132,12 @@ ConvertVerifyCtx.prototype.do_cmd = function(cmd, arg, styling) {
             newArg[i + 1] = this.getVarName(kind, cmd, i);
         }
 */
-        this.write(cmd + " " + GH.sexp_to_string(newArg) + "\n");
     } else {
         // others copied verbatim
         if ('export' == cmd) {
             // TODO: clean out old ones, provide means for accessing unexported
             this.exportInterface(arg[1]);
         }
-        this.write("    " + cmd + " " + GH.sexp_to_string(arg) + "\n");
     }
     GH.VerifyCtx.prototype.do_cmd.apply(this, arguments);
 };
@@ -274,11 +281,8 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
     }
     var fact = Fact().setCmd(myKw).setName(label);
     this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
-    if (proof) {
-        this.write(fact.toGhilbert(this.factsByKey));
-    }
     this.factsByLabel[label] = fact;
-    this.factsByKey[fact.getKey()] = fact;
+    factsDb.put(makeDbKey(fact), JSON.stringify(fact));
     // super()
     GH.VerifyCtx.prototype.add_assertion.apply(this, arguments);
 
@@ -308,11 +312,6 @@ ConvertVerifyCtx.prototype.get_export_ctx = function(prefix, pifs) {
 function ConvertExportCtx(verify, prefix, params, writer, renameMap) {
     GH.InterfaceCtx.call(this, verify, prefix, params);
     this.assertions = {};
-
-    var ghText = "";
-    this.write = function(str) { ghText += str; };
-    this.getGhText = function() { return ghText; }
-
 };
 
 ConvertExportCtx.prototype = new GH.ExportCtx();
@@ -323,7 +322,6 @@ ConvertExportCtx.prototype.do_cmd = function(cmd, arg, styling) {
     if (cmd == 'stmt') {
         newArg[0] = this.verify.getNewName(arg[0]);
     }
-    this.write(cmd + " " + GH.sexp_to_string(newArg) + "\n");
     // super
     GH.ExportCtx.prototype.do_cmd.apply(this, arguments);
 }
@@ -340,9 +338,7 @@ function processGhilbertModule(moduleName) {
             console.log("    XXXX Processing proof " + fileName);
             var verifyCtx = new ConvertVerifyCtx(urlCtx);
             verifyCtx.run(urlCtx, fileName, verifyCtx);
-            Fs.writeFileSync(path, verifyCtx.getGhText());
             var map = verifyCtx.getRenameMap();
-            Fs.writeFileSync(path + "_map", JSON.stringify(map));
             var ifaces = verifyCtx.interfaces;
             for (var iname in ifaces) if (ifaces.hasOwnProperty(iname)) {
                 if (ifaces[iname].getGhText) {
