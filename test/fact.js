@@ -1,3 +1,4 @@
+
 // A Fact is an "interlingua" object representing a stmt, thm, or defthm. This
 // is designed for easy conversion to/from JSON.
 // For consistency, you must almways name things in the same order.
@@ -7,30 +8,30 @@ module.exports = function(obj) {
         // This is the Fact schema. Only these fields are allowed. Anything
         // undefined may only be set to a string.
         obj = {
-            bone: {
-                stmt: [],
-                hyps: [],
-                free: undefined,
+            Bone: {
+                Stmt: [],
+                Hyps: [],
+                Free: undefined,
             },
-            meat: {
-                terms: [],
-                kinds: [],
+            Meat: {
+                Terms: [],
+                Kinds: [],
             },
-            skin: {
-                name: undefined,
-                license: undefined,
-                hypNames: [],
-                delimiters: [],
-                depNames: [],
-                v: [],
-                t: [],
+            Skin: {
+                Name: undefined,
+                License: undefined,
+                HypNames: [],
+                Delimiters: [],
+                DepNames: [],
+                V: [],
+                T: [],
             },
-            tree: {
-                cmd: undefined,
-                deps: [],
-                proof: [],
-                dkind: undefined,
-                dsig: undefined,
+            Tree: {
+                Cmd: undefined,
+                Deps: [],
+                Proof: [],
+                Dkind: undefined,
+                Dsig: undefined,
             },
         };
     }
@@ -50,69 +51,69 @@ module.exports = function(obj) {
     // set up methods on the obj
     obj.__proto__ = {
         nameTerm: function(s) {
-            return indexOf(this.meat.terms, s);
+            return indexOf(this.Meat.Terms, s);
         },
         nameHyp: function(s) {
-            return 'hyps.' + indexOf(this.skin.hypNames, s);
+            return 'Hyps.' + indexOf(this.Skin.HypNames, s);
         },
         nameDep: function(s, fact) {
             var that = this;
-            return 'deps.' + indexOf(this.skin.depNames, s, function(n) {
-                that.tree.deps[n] = fact.getKey();
+            return 'deps.' + indexOf(this.Skin.DepNames, s, function(n) {
+                that.Tree.Deps[n] = fact.getKey();
             });
         },
         nameKind: function(s) {
             var that = this;
-            return indexOf(this.meat.kinds, s, function(n) {
+            return indexOf(this.Meat.Kinds, s, function(n) {
                 // New kind added; initialize v and t arrays
-                that.skin.v[n] = [];
-                that.skin.t[n] = [];
+                that.Skin.V[n] = [];
+                that.Skin.T[n] = [];
             });
         },
         nameVar: function(cmd, kind, s) {
-            var key = cmd[0];
+            var key = cmd[0].toUpperCase();
             var kindNum = this.nameKind(kind);
-            var varNum = indexOf(this.skin[key][kindNum], s);
+            var varNum = indexOf(this.Skin[key][kindNum], s);
             return key + kindNum + '.' + varNum;
         },
         setName: function(s) {
-            this.skin.name = s;
+            this.Skin.Name = s;
             return this;
         },
         setCmd: function(s) {
-            this.tree.cmd = s;
+            this.Tree.Cmd = s;
             return this;
         },
         setHyps: function(arr) {
-            this.bone.hyps = arr;
+            this.Bone.Hyps = arr;
             return this;
         },
         setFree: function(arr) {
-            this.bone.free = arr;
+            this.Bone.Free = arr;
             return this;
         },
         setDkind: function(n) {
-            this.tree.dkind = n;
+            this.Tree.Dkind = n;
             return this;
         },
         setDsig: function(sexp) {
-            this.tree.dsig = sexp;
+            this.Tree.Dsig = sexp;
             return this;
         },
         setProof: function(arr) {
-            this.tree.proof = arr;
+            this.Tree.Proof = arr;
         },
         setStmt: function(sexp) {
-            this.bone.stmt = sexp;
+            this.Bone.Stmt = sexp;
         },
-        toGhilbert: function(factsByKey) {
+        toGhilbert: function(getFact) {
             var that = this;
             function getVar(s) {
                 // TODO: insert var/tvar cmds
                 var key = s[0];
                 var kindNum = s.substring(1).split('.');
                 try {
-                    return that.skin[key][kindNum[0]][kindNum[1]];
+                    return that.Skin[key][kindNum[0]][kindNum[1]];
                 } catch (e) {
                     throw new Error("Cannot getVar: " + s + "\n" +
                                     JSON.stringify(that));
@@ -121,62 +122,58 @@ module.exports = function(obj) {
             function stringify(sexp) {
                 if (sexp.shift) {
                     var args = sexp.slice(1).map(stringify);
-                    args.unshift(that.meat.terms[sexp[0]]);
+                    args.unshift(that.Meat.Terms[sexp[0]]);
                     return "(" + args.join(" ") + ")";
                 } else {
                     return getVar(sexp);
                 }
             }
             var out = "";
-            out += this.tree.cmd
+            out += this.Tree.Cmd
             out += " ";
-            out += "(" + this.skin.name;
+            out += "(" + this.Skin.Name;
             out += "\n  ";
 
-            if (typeof this.tree.dkind === 'number') {
-                out += this.meat.kinds[this.tree.dkind];
+            if (typeof this.Tree.Dkind === 'number') {
+                out += this.Meat.Kinds[this.Tree.Dkind];
                 out += " ";
-                out += stringify(this.tree.dsig);
+                out += stringify(this.Tree.Dsig);
                 out += "\n";
             }
             
-            out += '(' + this.bone.free.map(function(fv) {
+            out += '(' + this.Bone.Free.map(function(fv) {
                 return '(' + fv.map(getVar).join(' ') + ')';
             }).join(' ') + ')';
             out += "\n  ";
             out += "(";
 
-            for (var i = 0; i < this.bone.hyps.length; i++) {
-                if (this.tree.cmd != 'stmt') {
-                    out += this.skin.hypNames[i];
+            for (var i = 0; i < this.Bone.Hyps.length; i++) {
+                if (this.Tree.Cmd != 'stmt') {
+                    out += this.Skin.HypNames[i];
                     out += " ";
                 }
-                out += stringify(this.bone.hyps[i]);
-                if (i + 1 < this.bone.hyps.length) {
+                out += stringify(this.Bone.Hyps[i]);
+                if (i + 1 < this.Bone.Hyps.length) {
                     out += "\n   ";
                 }
             }
             out += ")";
             out += "\n  ";
 
-            out += stringify(this.bone.stmt);
+            out += stringify(this.Bone.Stmt);
             out += "\n  ";
 
-            if (this.tree.proof) {
+            if (this.Tree.Proof) {
                 function step(s) {
                     if (s.shift) {
                         return stringify(s);
-                    } else if (s.match(/^hyps/)) {
-                        return that.skin.hypNames[s.substring(5)];
+                    } else if (s.match(/^Hyps/)) {
+                        return that.Skin.HypNames[s.substring(5)];
                     } else if (s.match(/^deps/)) {
                         var depNum = s.substring(5);
-                        var depKey = that.tree.deps[depNum];
-                        var depName = factsByKey[depKey].skin.name;
-                        var origDep = that.skin.depNames[depNum];
-                        if (depName != origDep) {
-                            console.log("Warning: using " + depName +
-                                        " instead of " + origDep);
-                        }
+                        var depKey = that.Tree.Deps[depNum];
+                        var origDep = that.Skin.DepNames[depNum];
+                        var depName = getFact(depKey, origDep).Skin.Name;
                         return depName;
                     } else {
                         var varName = getVar(s);
@@ -186,13 +183,15 @@ module.exports = function(obj) {
                         return varName;
                     }
                 }
-                out += this.tree.proof.map(step).join(' ');
+                out += this.Tree.Proof.map(step).join(' ');
                 out += "\n)\n";
             }
             return out;
         },
         getKey: function() {
-            return JSON.stringify([this.bone, this.meat]);
+            var arr = [[this.Bone.Stmt, this.Bone.Hyps, this.Bone.Free],
+                       [this.Meat.Terms, this.Meat.Kinds]];
+            return arr;
         }
     };
     return obj;
