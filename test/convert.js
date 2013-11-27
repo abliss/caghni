@@ -45,7 +45,8 @@ function makeDbKey(fact) {
     var hash = Crypto.createHash('sha1');
     hash.update(factJson);
     var sha1 = hash.digest('hex');
-    var key = JSON.stringify(fact.getKey()) + "!" + sha1;
+    var key = fact.getKey() + "!" + sha1;
+    
     return key;
 }
 
@@ -282,6 +283,7 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
     var fact = Fact().setCmd(myKw).setName(label);
     this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
     this.factsByLabel[label] = fact;
+    //console.log("putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
     factsDb.put(makeDbKey(fact), JSON.stringify(fact));
     // super()
     GH.VerifyCtx.prototype.add_assertion.apply(this, arguments);

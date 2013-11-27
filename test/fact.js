@@ -58,7 +58,7 @@ module.exports = function(obj) {
         },
         nameDep: function(s, fact) {
             var that = this;
-            return 'deps.' + indexOf(this.Skin.DepNames, s, function(n) {
+            return 'Deps.' + indexOf(this.Skin.DepNames, s, function(n) {
                 that.Tree.Deps[n] = fact.getKey();
             });
         },
@@ -191,7 +191,10 @@ module.exports = function(obj) {
         getKey: function() {
             var arr = [[this.Bone.Stmt, this.Bone.Hyps, this.Bone.Free],
                        [this.Meat.Terms, this.Meat.Kinds]];
-            return arr;
+            // TODO: removing quotes and backslashes is convenient, but destroys
+            // our ability to move backwards from key to fact, and opens us up
+            // to malicious injection. Wise??
+            return JSON.stringify(arr).replace(/"/g,"").replace(/\\\\/g, "\\");
         }
     };
     return obj;

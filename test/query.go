@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -27,7 +28,7 @@ type Fact struct {
 	}
 	Tree struct {
 		Cmd   string
-		Deps  []interface{}
+		Deps  []string
 		Proof []interface{}
 		Dkind int
 		Dsig  []interface{}
@@ -42,10 +43,17 @@ func main() {
 	}
 	defer db.Close()
 	iter := db.NewIterator(nil)
-	for iter.Next() {
-		// Remember that the contents of the returned slice should not be modified, and
-		// only valid until the next call to Next.
+	//start := []byte("[[[0,[1,T0.0],[0,[2,T0.0,[3,T0.1,T0.2]],[4,[2,T0.0,T0.1],[2,T0.0,T0.2]]]],[],[]],")
+	start := []byte("[[[0,[1,T0.0],[0,[2,T0.0,[")
+
+	end := append(start, byte(0xff))
+
+	iter.Seek(start)
+	for {
 		key := iter.Key()
+		if bytes.Compare(key, end) > 0 {
+			break
+		}
 		value := iter.Value()
 		fmt.Printf("Key: %s\n", key)
 		var fact Fact
@@ -55,6 +63,13 @@ func main() {
 			panic(-1)
 		} else {
 			fmt.Printf("Name: %v\n", fact.Skin.Name)
+			fmt.Printf("Stmt: %v\n", fact.Bone.Stmt)
+			//fmt.Printf("End?: %v\n",
+			fmt.Println()
+		}
+		if !iter.Next() {
+			break
 		}
 	}
+	iter.Release()
 }
