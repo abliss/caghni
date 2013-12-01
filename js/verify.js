@@ -462,7 +462,7 @@ GH.VerifyCtx.prototype.set_suppress_errors = function(flag) {
 
 GH.VerifyCtx.prototype.add_sym = function(label, val) {
     if (this.syms.hasOwnProperty(label)) {
-        throw 'Symbol ' + label + ' already defined';
+        log('WARNING: Symbol ' + label + ' already defined');
     }
     this.syms[label] = val;
 };

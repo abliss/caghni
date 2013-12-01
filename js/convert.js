@@ -1,23 +1,19 @@
 #!/usr/bin/node
 /**
  * Convert.js
- * Usage: ./convert.js indir
- * Blows away directory out-v${version}, and fills it with the objects parsed
- * from the indir.
+ * Usage: ./convert.js indir outdir
  */
 
 var VERSION = 2;
 /**
  * Version 2: Builds a LevelDB of all content (see README.md for
- * schema). Capable of recreating the inputs byte-for-byte; also capable of
- * translating a thm (with proof) from one ghilbert corpus to another.
+ * schema). 
  */
 
 var Process = process;
 var Path = require('path');
 var Fs = require('fs');
 var Crypto = require('crypto');
-var Rimraf = require('rimraf');
 var Fact = require('./fact.js');
 
 GH = global.GH = {};
@@ -27,15 +23,18 @@ require('./proofstep.js')
 
 var args = Process.argv;
 
-var outDir = "out-v" + VERSION;
-if (args.length != 3) {
-    console.log("Usage: ./convert.js indir");
-    console.log("Blows away " + outDir);
+if (args.length != 4) {
+    console.log("Usage: ./convert.js gh-dir outdir");
     process.exit(-1);
 }
+var inDir = args[2];
+var outDir = args[3]
 
-Rimraf.sync(outDir);
-Fs.mkdirSync(outDir);
+try {
+    Fs.mkdirSync(outDir);
+} catch (e) {
+    // ignore EEXIST
+}
 
 var Level = require('level');
 var factsDb = Level(Path.join(outDir, 'facts.leveldb'));
@@ -50,7 +49,7 @@ function makeDbKey(fact) {
     return key;
 }
 
-var inDir = Process.argv[2];
+
 
 
 
@@ -83,7 +82,7 @@ function ConvertVerifyCtx(urlCtx) {
             command = GH.read_sexp(scanner);
         }
     }
-
+    GH.VerifyCtx.call(this, urlCtx, this.run);
     var exportedInterfaces = {};
     var thmRenameMap = {};
     // Creates, stores, and returns a new name for the theorem
@@ -355,23 +354,13 @@ function processGhilbertModule(moduleName) {
             // TODO: assumes / for path separator.
             var url = '/' + moduleName + '/' + fileName;
             console.log("    XXXX Processing interface " + url);
-            var outText;
-            if (exportedInterfaces[url]) {
-                console.log("    XXXX Exported! " + url);
-                outText = exportedInterfaces[url].getGhText();
-            } else {
-                outText = Fs.readFileSync(inDir + url);
-            }
-            Fs.writeFileSync(outDir + url, outText);
         }
     }
-    Fs.mkdirSync(Path.join(outDir, moduleName));
     var urlCtx = new NodeUrlContext(Path.join(inDir, moduleName));
-
     var files = Fs.readdirSync(Path.join(inDir, moduleName));
     files.forEach(processProofFile);
     files.forEach(processInterfaceFile);
-
 }
 
 Fs.readdirSync(inDir).forEach(processGhilbertModule);
+factsDb.close()
