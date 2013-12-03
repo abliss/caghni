@@ -50,9 +50,6 @@ function makeDbKey(fact) {
 }
 
 
-
-
-
 function NodeUrlContext(rootDir) {
     this.resolve = function(url) {
         // TODO(abliss): sometimes the path has repeats?
@@ -218,6 +215,8 @@ ConvertVerifyCtx.prototype.populateFact = function(fact, fv, hyps, stmt, proof,
         if (that.terms.hasOwnProperty(term) ||
             (dsig && (dsig[0] === term))) {
             term = fact.nameTerm(term);
+            // TODO: need to name tree term separately from bone/meat terms.
+            // otherwise key gets dummy terms; see bicom
         }
         var out = sexp.slice(1).map(mapSexp);
         out.unshift(term);
@@ -282,7 +281,7 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
     var fact = Fact().setCmd(myKw).setName(label);
     this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
     this.factsByLabel[label] = fact;
-    //console.log("putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
+    console.log("putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
     factsDb.put(makeDbKey(fact), JSON.stringify(fact));
     // super()
     GH.VerifyCtx.prototype.add_assertion.apply(this, arguments);
@@ -361,6 +360,7 @@ function processGhilbertModule(moduleName) {
     files.forEach(processProofFile);
     files.forEach(processInterfaceFile);
 }
+
 
 Fs.readdirSync(inDir).forEach(processGhilbertModule);
 factsDb.close()
