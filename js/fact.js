@@ -2,8 +2,11 @@
 // A Fact is an "interlingua" object representing a stmt, thm, or defthm. This
 // is designed for easy conversion to/from JSON.
 // For consistency, you must almways name things in the same order.
-
+// Once the hyps and stmt have been set, further calls to nameKind and
+// nameTerm will not affect the result of getKey().
 module.exports = function(obj) {
+    var hypsSet = false;
+    var stmtSet = false;
     if (!obj) {
         // This is the Fact schema. Only these fields are allowed. Anything
         // undefined may only be set to a string.
@@ -30,6 +33,8 @@ module.exports = function(obj) {
                 Cmd: undefined,
                 Deps: [],
                 Proof: [],
+                Terms: [],  // Meat.Terms is a prefix
+                Kinds: [],  // Meat.Kinds is a prefix
                 Dkind: undefined,
                 Dsig: undefined,
             },
@@ -51,7 +56,11 @@ module.exports = function(obj) {
     // set up methods on the obj
     obj.__proto__ = {
         nameTerm: function(s) {
-            return indexOf(this.Meat.Terms, s);
+            var num = indexOf(this.Tree.Terms, s);
+            if (!hypsSet || !stmtSet) {
+                this.Meat.Terms[num] = s
+            }
+            return num
         },
         nameHyp: function(s) {
             return 'Hyps.' + indexOf(this.Skin.HypNames, s);
@@ -64,11 +73,15 @@ module.exports = function(obj) {
         },
         nameKind: function(s) {
             var that = this;
-            return indexOf(this.Meat.Kinds, s, function(n) {
+            var num = indexOf(this.Tree.Kinds, s, function(n) {
                 // New kind added; initialize v and t arrays
                 that.Skin.V[n] = [];
                 that.Skin.T[n] = [];
             });
+            if (!hypsSet || !stmtSet) {
+                this.Meat.Kinds[num] = s
+            }
+            return num
         },
         nameVar: function(cmd, kind, s) {
             var key = cmd[0].toUpperCase();
@@ -85,6 +98,10 @@ module.exports = function(obj) {
             return this;
         },
         setHyps: function(arr) {
+            if (hypsSet) {
+                throw new Error("Can't re-set hyps");
+            }
+            hypsSet = true;
             this.Bone.Hyps = arr;
             return this;
         },
@@ -104,6 +121,10 @@ module.exports = function(obj) {
             this.Tree.Proof = arr;
         },
         setStmt: function(sexp) {
+            if (stmtSet) {
+                throw new Error("Can't re-set stmt");
+            }
+            stmtSet = true;
             this.Bone.Stmt = sexp;
         },
         toGhilbert: function(getFact) {
