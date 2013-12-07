@@ -64,7 +64,8 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- Entry) {
 		keyFact.Key = string(key)
 		err := json.Unmarshal(value, &keyFact.Fact)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\nValue: %s\n", err, value)
+			fmt.Fprintf(os.Stderr, "Error: %v\nKey:%s\nValue: %s\n",
+				err, key, value)
 			panic(-1)
 		} else {
 			found = true
@@ -113,6 +114,9 @@ func scan_sexp(sexp string, off int) int {
 // 5. The output channel must not be closed.
 // 6. Must be threadsafe.
 // 7. Whenever calling back in to a JobServer, must pass its jobid.
+//
+// TODO: currently cannot detect deadlocks spread between multiple servers. an
+// external lockserver may be required for that.
 type JobRequest struct {
 	Parent string
 	Target string
@@ -121,7 +125,7 @@ type JobRequest struct {
 type JobServer struct {
 	reqs      chan JobRequest
 	results   chan []Entry
-	listeners map[string][]chan []Entry
+	listeners map[string]map[string]chan []Entry
 	last      map[string][]Entry
 	done      map[string][]Entry
 	Jobber    func(jobid, key string, job chan []Entry)
@@ -133,7 +137,7 @@ func (this *JobServer) Run() {
 	this.results = make(chan []Entry, 2000)
 	this.last = make(map[string][]Entry)
 	this.done = make(map[string][]Entry)
-	this.listeners = make(map[string][]chan []Entry)
+	this.listeners = make(map[string]map[string]chan []Entry)
 	for {
 		select {
 		case req := <-this.reqs:
@@ -148,22 +152,53 @@ func (this *JobServer) Run() {
 				listeners, ok := this.listeners[key]
 				if !ok {
 					//fmt.Printf("XXXX Jobber %s: no listeners for key %s, jobbing\n", this.name, key)
-					listeners = make([]chan []Entry, 0, 1)
-					go this.Jobber(this.name, req.Target, this.results)
+					listeners = make(map[string]chan []Entry)
+					go this.Jobber(req.Target, req.Target, this.results)
 				}
-				this.listeners[key] = append(listeners, req.Out)
+				listeners[req.Parent] = req.Out
+				this.listeners[key] = listeners
+				// check for cycles
+				fmt.Printf("XXXX Jobber %s: %s waiting on %s\n", this.name,
+					req.Parent, key)
+				work := make([]string, 1)
+				work[0] = req.Parent
+				var d string
+				for len(work) > 0 {
+					d, work = work[0], work[1:]
+					for k := range this.listeners[d] {
+						if _, ok = listeners[k]; !ok {
+							listeners[k] = nil
+							work = append(work, k)
+							if k == key {
+								fmt.Printf("XXXX Jobber %s: %s cycled!\n",
+									this.name, key)
+								//TODO: pick less arbitrary target to kill
+								sentinel := make([]Entry, 1)
+								sentinel[0].Key = key
+								sentinel[0].IsDone = true
+								this.results <- sentinel
+								work = nil
+								break
+							}
+						}
+					}
+				}
 			}
 		case res := <-this.results:
 			key := res[0].Key
 			//XX fmt.Printf("XXXX Response for for %s\n", key)
-			for _, listener := range this.listeners[key] {
-				listener <- res
-			}
-			if res[0].IsDone {
-				this.done[key] = res
-				delete(this.listeners, key)
-			} else {
-				this.last[key] = res
+			if _, ok := this.done[key]; !ok {
+				for _, listenerChan := range this.listeners[key] {
+					if listenerChan != nil {
+						listenerChan <- res
+					}
+				}
+				if res[0].IsDone {
+					this.done[key] = res
+					delete(this.listeners, key)
+				} else {
+					this.last[key] = res
+				}
 			}
 		}
 	}
@@ -261,21 +296,44 @@ func main() {
 	}
 	defer db.Close()
 	groundSet := parseIncludes(strings.Split(*includes, ","))
-	_ = groundSet //XXX
 	var resolver, closer JobServer
 	resolver.name = "Resolver"
+	// The resolver expects a prefix of a key, and always returns an array of
+	// two entries. the first one is a dummy so that its key can match the
+	// (sometimes incomplete) target string. The second will be an actual entry,
+	// whose key is prefixed by the given target, and which has been
+	// closed. When no more results are available, we send the sentinel which
+	// has entry[0].IsDone set.
+	resolver.Jobber = func(_, target string, out chan []Entry) {
+		ch := make(chan Entry)
+		go GetFactsByPrefix(db, target, ch)
+		for entry := range ch {
+			myOut := make([]Entry, 2)
+			myOut[0].Key = target
+			myOut[1] = entry
+			out <- myOut
+			if groundSet[entry.Fact.Skin.Name] {
+				break
+			}
+		}
+		sentinel := make([]Entry, 1)
+		sentinel[0].Key = target
+		sentinel[0].IsDone = true
+		out <- sentinel
+	}
+	go resolver.Run()
+
 	closer.name = "Closer"
-	var closeEntry func(jobid, target string, out chan []Entry)
-	var resolveKey func(jobid, target string, out chan []Entry)
 	// The Closer expects an exact key, and outputs lists of entries such that:
 	// 1. the first entry has a key matching the given key
 	// 2. each entry's dependencies will be satisfied by something later
 	// in the list
 	// When no further closures exist, a sentinel will cap the stream by
 	// setting entry[0].IsDone to true.
-	closeEntry = func(jobid, key string, out chan []Entry) {
+	closer.Jobber = func(jobid, key string, out chan []Entry) {
 		fmt.Printf("XXXX Closing string %s\n", key)
 		keySexp := key[0:scan_sexp(key, 0)]
+		_ = keySexp //XXX
 		// since this is a full key, there can be only one resloution.
 		ch := make(chan []Entry, 2000)
 		resolver.Job(jobid, key, ch)
@@ -327,53 +385,42 @@ func main() {
 						delete(cJobs, t[0].Key)
 						fmt.Printf("XXXX CE %s, requesting close %s complete, need %d/%d\n", name, t[0].Key, rJobs, len(cJobs))
 					} else {
-						var cycle bool
-						for _, d := range t {
-							// make sure proposed closure does not cycle
-							dSexp := d.Key[0:scan_sexp(d.Key, 0)]
-							if dSexp == keySexp {
-								cycle = true
-								break
-							}
+						key := t[0].Key
+						kSexp := key[0:scan_sexp(key, 0)]
+						oldT, ok := depMap[kSexp]
+						if !ok {
+							numDeps--
+							depMap[kSexp] = t
 						}
-						if !cycle {
-							key := t[0].Key
-							kSexp := key[0:scan_sexp(key, 0)]
-							oldT, ok := depMap[kSexp]
-							if !ok {
-								numDeps--
-								depMap[kSexp] = t
-							}
-							if numDeps > 0 {
-								fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
+						if numDeps > 0 {
+							fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
+						} else {
+							shouldSend := false
+							if lastOut == nil {
+								lastOut, lastStmts = compactify(target,
+									groundSet, depMap)
+								shouldSend = true
 							} else {
-								shouldSend := false
-								if lastOut == nil {
-									lastOut, lastStmts = compactify(target,
-										groundSet, depMap)
-									shouldSend = true
+								depMap[kSexp] = t
+								newOut, newStmts := compactify(target,
+									groundSet, depMap)
+								if newStmts > lastStmts ||
+									(newStmts == lastStmts &&
+										len(newOut) >= len(lastOut)) {
+									// not a better proof, reset
+									depMap[kSexp] = oldT
 								} else {
-									depMap[kSexp] = t
-									newOut, newStmts := compactify(target,
-										groundSet, depMap)
-									if newStmts > lastStmts ||
-										(newStmts == lastStmts &&
-											len(newOut) >= len(lastOut)) {
-										// not a better proof, reset
-										depMap[kSexp] = oldT
-									} else {
-										// better proof
-										lastOut = newOut
-										lastStmts = newStmts
-										shouldSend = true
-									}
+									// better proof
+									lastOut = newOut
+									lastStmts = newStmts
+									shouldSend = true
 								}
-								if shouldSend {
-									out <- lastOut
-									// XXX logging below
-									fmt.Printf("XXXX CE %s best #%d: %s\n",
-										name, lastStmts, fmtProof(lastOut))
-								}
+							}
+							if shouldSend {
+								out <- lastOut
+								// XXX logging below
+								fmt.Printf("XXXX CE %s best #%d: %s\n",
+									name, lastStmts, fmtProof(lastOut))
 							}
 						}
 					}
@@ -386,89 +433,14 @@ func main() {
 		sentinel[0].IsDone = true
 		out <- sentinel
 	}
-	// The resolver expects a prefix of a key, and always returns an array of
-	// two entries. the first one is a dummy so that its key can match the
-	// (sometimes incomplete) target string. The second will be an actual entry,
-	// whose key is prefixed by the given target, and which has been
-	// closed. When no more results are available, we send the sentinel which
-	// has entry[0].IsDone set.
-	resolveKey = func(jobid, target string, out chan []Entry) {
-		fmt.Printf("XXXX RS %s\n", target)
-		sendHit := func(e Entry) {
-			myOut := make([]Entry, 2)
-			myOut[0].Key = target
-			myOut[1] = e
-			out <- myOut
-		}
-		ch := make(chan Entry, 2000)
-		go GetFactsByPrefix(db, target, ch)
-		closeCh := make(chan []Entry, 2000)
-		numJobs := 0
-		for entry := range ch {
-			if len(entry.Fact.Tree.Deps) == 0 || entry.Key == target {
-				// stmts and exact matches go out right away
-				fmt.Printf("XXXX RS %s to stmt %s\n",
-					target, entry.Fact.Skin.Name)
-				sendHit(entry)
-				if groundSet[entry.Fact.Skin.Name] {
-					fmt.Printf("XXXX RS %s to stmt %s AX\n",
-						target, entry.Fact.Skin.Name)
-
-					numJobs = 0
-					break
-				}
-			} else {
-				// thm prefix matches get closed then sent out
-				fmt.Printf("XXXX RS %s, requesting closure %s is %s\n", target, entry.Key, entry.Fact.Skin.Name)
-				closer.Job(jobid, entry.Key, closeCh)
-				numJobs++
-			}
-		}
-		bestStmts := -1
-		bestLen := -1
-		for numJobs > 0 {
-			closed := <-closeCh
-			if closed[0].IsDone {
-				numJobs--
-				fmt.Printf("XXXX RS %s, requesting closure %s no longer, need %d\n", target, closed[0].Key, numJobs)
-			} else {
-				stmts := make(map[string]bool)
-				for _, e := range closed {
-					if len(e.Fact.Tree.Deps) == 0 &&
-						!groundSet[e.Fact.Skin.Name] &&
-						!stmts[e.Fact.Skin.Name] {
-						stmts[e.Fact.Skin.Name] = true
-					}
-				}
-				newLen := len(closed)
-				if bestStmts == -1 || len(stmts) < bestStmts ||
-					(len(stmts) == bestStmts && newLen < bestLen) {
-					bestStmts = len(stmts)
-					bestLen = newLen
-					entry := closed[0]
-					fmt.Printf("XXXX RS %s, to thm %s, stmts=%d, len=%d\n",
-						target, entry.Fact.Skin.Name, bestStmts, bestLen)
-					sendHit(entry)
-				}
-			}
-		}
-		fmt.Printf("XXXX RS %s, all done\n", target)
-		sentinel := make([]Entry, 1)
-		sentinel[0].Key = target
-		sentinel[0].IsDone = true
-		out <- sentinel
-	}
-	closer.Jobber = closeEntry
-	resolver.Jobber = resolveKey
 	go closer.Run()
-	go resolver.Run()
 
 	out := make(chan []Entry, 2000)
 	//key := "[[[0,[1,T0.0],[0,[2,T0.0,[3,T0.1,T0.2]],[4,[2,T0.0,T0.1],[2,T0.0,T0.2]]]],[],[]],[[->,prime,|,*,\\/,0,1,S],[nat]]]" // key for euclidlem
 	//key := "[[[0,T0.0,T0.1],[[0,T0.2,T0.3],[1,T0.2,T0.0],[1,T0.3,T0.1]],[]],[[->,<->],[wff]]]" // for 3imtr3i
 	key := "[[[0,[1,[1,T0.0]],T0.0],[],[]],[[->,-.],[wff]]]!f14578e032bd77f8efc9cee923c161e6f5ca0616" // key for dn
 	//key := "[[[0,T0.0,T0.1],[T0.1],[]],[[->],[wff]]]" // key for a1i
-	closer.Job("", key, out)
+	closer.Job("ROOT", key, out)
 	for res := range out {
 		if res[0].IsDone {
 			fmt.Printf("XXXX No more results.\n")
