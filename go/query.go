@@ -48,12 +48,12 @@ type Entry struct {
 }
 
 func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- Entry) {
-	es := make([]Entry, 0, 10)
 	start := []byte(pfix)
 	iter := db.NewIterator(nil)
 	defer iter.Release()
 	end := append(start, byte(0xff))
 	iter.Seek(start)
+	found := false
 	for {
 		key := iter.Key()
 		if bytes.Compare(key, end) > 0 {
@@ -67,15 +67,17 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- Entry) {
 			fmt.Fprintf(os.Stderr, "Error: %v\nValue: %s\n", err, value)
 			panic(-1)
 		} else {
+			found = true
 			out <- keyFact
-			es = append(es, keyFact)
 		}
 		fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
 		if !iter.Next() {
 			break
 		}
 	}
-
+	if !found {
+		fmt.Fprintf(os.Stderr, "Pfix Not Found: %s\n", pfix)
+	}
 	close(out)
 }
 
@@ -100,6 +102,7 @@ func scan_sexp(sexp string, off int) int {
 // 1. a duplicate function call suppressor, similar to singleflight.go
 // 2. memoization
 // 3. output channel fanout
+// 4. deadlock detection
 //
 // Each JobServer has a Jobber, which performs the actual search. The Jobber is
 // a function with the following contract:
@@ -109,7 +112,9 @@ func scan_sexp(sexp string, off int) int {
 // 4. When no more outputs are coming, send a sentry with entry[0].IsDone set.
 // 5. The output channel must not be closed.
 // 6. Must be threadsafe.
+// 7. Whenever calling back in to a JobServer, must pass its jobid.
 type JobRequest struct {
+	Parent string
 	Target string
 	Out    chan []Entry
 }
@@ -119,7 +124,7 @@ type JobServer struct {
 	listeners map[string][]chan []Entry
 	last      map[string][]Entry
 	done      map[string][]Entry
-	Jobber    func(key string, job chan []Entry)
+	Jobber    func(jobid, key string, job chan []Entry)
 	name      string
 }
 
@@ -144,7 +149,7 @@ func (this *JobServer) Run() {
 				if !ok {
 					//fmt.Printf("XXXX Jobber %s: no listeners for key %s, jobbing\n", this.name, key)
 					listeners = make([]chan []Entry, 0, 1)
-					go this.Jobber(req.Target, this.results)
+					go this.Jobber(this.name, req.Target, this.results)
 				}
 				this.listeners[key] = append(listeners, req.Out)
 			}
@@ -165,9 +170,16 @@ func (this *JobServer) Run() {
 }
 
 // Safe to call from anywhere
-func (this *JobServer) Job(target string, out chan []Entry) {
-	jobReq := JobRequest{target, out}
-	this.reqs <- jobReq
+func (this *JobServer) Job(jobid, target string, out chan []Entry) {
+	jobReq := JobRequest{jobid, target, out}
+	// for/select in case Run() hasn't been called yet
+	for {
+		select {
+		case this.reqs <- jobReq:
+			return
+		default:
+		}
+	}
 }
 
 func parseIncludes(includes []string) map[string]bool {
@@ -253,20 +265,20 @@ func main() {
 	var resolver, closer JobServer
 	resolver.name = "Resolver"
 	closer.name = "Closer"
-	var closeEntry func(target string, out chan []Entry)
-	var resolveKey func(target string, out chan []Entry)
+	var closeEntry func(jobid, target string, out chan []Entry)
+	var resolveKey func(jobid, target string, out chan []Entry)
 	// The Closer expects an exact key, and outputs lists of entries such that:
 	// 1. the first entry has a key matching the given key
 	// 2. each entry's dependencies will be satisfied by something later
 	// in the list
 	// When no further closures exist, a sentinel will cap the stream by
 	// setting entry[0].IsDone to true.
-	closeEntry = func(key string, out chan []Entry) {
+	closeEntry = func(jobid, key string, out chan []Entry) {
 		fmt.Printf("XXXX Closing string %s\n", key)
 		keySexp := key[0:scan_sexp(key, 0)]
 		// since this is a full key, there can be only one resloution.
 		ch := make(chan []Entry, 2000)
-		resolver.Job(key, ch)
+		resolver.Job(jobid, key, ch)
 		target := (<-ch)[1]
 		name := fmt.Sprintf("%s/%d", target.Fact.Skin.Name,
 			len(target.Fact.Tree.Deps))
@@ -291,7 +303,7 @@ func main() {
 			var lastStmts int
 			for _, dep := range target.Fact.Tree.Deps {
 				fmt.Printf("XXXX CE %s, requesting resolve %s\n", name, dep)
-				resolver.Job(dep, resolveChan)
+				resolver.Job(jobid, dep, resolveChan)
 				rJobs++
 			}
 			for rJobs > 0 || len(cJobs) > 0 {
@@ -306,7 +318,7 @@ func main() {
 						} else {
 							fmt.Printf("XXXX CE %s, requesting close %s as %s\n", name, r[1].Key, r[1].Fact.Skin.Name)
 							cJobs[r[1].Key] = true
-							closer.Job(r[1].Key, tailChan)
+							closer.Job(jobid, r[1].Key, tailChan)
 						}
 					}
 					break
@@ -380,7 +392,7 @@ func main() {
 	// whose key is prefixed by the given target, and which has been
 	// closed. When no more results are available, we send the sentinel which
 	// has entry[0].IsDone set.
-	resolveKey = func(target string, out chan []Entry) {
+	resolveKey = func(jobid, target string, out chan []Entry) {
 		fmt.Printf("XXXX RS %s\n", target)
 		sendHit := func(e Entry) {
 			myOut := make([]Entry, 2)
@@ -408,7 +420,7 @@ func main() {
 			} else {
 				// thm prefix matches get closed then sent out
 				fmt.Printf("XXXX RS %s, requesting closure %s is %s\n", target, entry.Key, entry.Fact.Skin.Name)
-				go closer.Job(entry.Key, closeCh)
+				closer.Job(jobid, entry.Key, closeCh)
 				numJobs++
 			}
 		}
@@ -456,7 +468,7 @@ func main() {
 	//key := "[[[0,T0.0,T0.1],[[0,T0.2,T0.3],[1,T0.2,T0.0],[1,T0.3,T0.1]],[]],[[->,<->],[wff]]]" // for 3imtr3i
 	key := "[[[0,[1,[1,T0.0]],T0.0],[],[]],[[->,-.],[wff]]]!f14578e032bd77f8efc9cee923c161e6f5ca0616" // key for dn
 	//key := "[[[0,T0.0,T0.1],[T0.1],[]],[[->],[wff]]]" // key for a1i
-	go closer.Job(key, out)
+	closer.Job("", key, out)
 	for res := range out {
 		if res[0].IsDone {
 			fmt.Printf("XXXX No more results.\n")

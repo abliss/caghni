@@ -115,3 +115,13 @@ backtrack. Among the complete results, we can score them based on, say: 1. how
 many new axioms must be added; 2. how many new theorems must be added; 3. how
 many steps are in the proof; etc. We can even program in automatic license
 compatability testing.
+
+# Try it out
+
+You need relatively recent versions of `node.js` (I'm using 0.8.20) and `go` (1.21)
+
+    $ npm install level
+    $ node js/convert.js test/in-gh out
+    $ go get github.com/syndtr/goleveldb/leveldb
+    $ go build go/query
+    $ go/query -d out/facts.leveldb
