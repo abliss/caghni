@@ -10,6 +10,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -213,6 +214,7 @@ func (this *JobServer) Job(jobid, target string, out chan []*Entry) {
 		case this.reqs <- jobReq:
 			return
 		default:
+			runtime.Gosched()
 		}
 	}
 }
