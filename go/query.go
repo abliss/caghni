@@ -47,7 +47,7 @@ type Entry struct {
 	IsDone bool
 }
 
-func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- Entry) {
+func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 	start := []byte(pfix)
 	iter := db.NewIterator(nil)
 	defer iter.Release()
@@ -60,7 +60,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- Entry) {
 			break
 		}
 		value := iter.Value()
-		var keyFact Entry
+		keyFact := new(Entry)
 		keyFact.Key = string(key)
 		err := json.Unmarshal(value, &keyFact.Fact)
 		if err != nil {
@@ -71,7 +71,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- Entry) {
 			found = true
 			out <- keyFact
 		}
-		fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
+		//XX fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
 		if !iter.Next() {
 			break
 		}
@@ -120,24 +120,24 @@ func scan_sexp(sexp string, off int) int {
 type JobRequest struct {
 	Parent string
 	Target string
-	Out    chan []Entry
+	Out    chan []*Entry
 }
 type JobServer struct {
 	reqs      chan JobRequest
-	results   chan []Entry
-	listeners map[string]map[string]chan []Entry
-	last      map[string][]Entry
-	done      map[string][]Entry
-	Jobber    func(jobid, key string, job chan []Entry)
+	results   chan []*Entry
+	listeners map[string]map[string]chan []*Entry
+	last      map[string][]*Entry
+	done      map[string][]*Entry
+	Jobber    func(jobid, key string, job chan []*Entry)
 	name      string
 }
 
 func (this *JobServer) Run() {
 	this.reqs = make(chan JobRequest, 2000)
-	this.results = make(chan []Entry, 2000)
-	this.last = make(map[string][]Entry)
-	this.done = make(map[string][]Entry)
-	this.listeners = make(map[string]map[string]chan []Entry)
+	this.results = make(chan []*Entry, 2000)
+	this.last = make(map[string][]*Entry)
+	this.done = make(map[string][]*Entry)
+	this.listeners = make(map[string]map[string]chan []*Entry)
 	for {
 		select {
 		case req := <-this.reqs:
@@ -152,14 +152,13 @@ func (this *JobServer) Run() {
 				listeners, ok := this.listeners[key]
 				if !ok {
 					//fmt.Printf("XXXX Jobber %s: no listeners for key %s, jobbing\n", this.name, key)
-					listeners = make(map[string]chan []Entry)
+					listeners = make(map[string]chan []*Entry)
 					go this.Jobber(req.Target, req.Target, this.results)
 				}
 				listeners[req.Parent] = req.Out
 				this.listeners[key] = listeners
 				// check for cycles
-				fmt.Printf("XXXX Jobber %s: %s waiting on %s\n", this.name,
-					req.Parent, key)
+				//XXfmt.Printf("XXXX Jobber %s: %s waiting on %s\n", this.name, req.Parent, key)
 				work := make([]string, 1)
 				work[0] = req.Parent
 				var d string
@@ -173,7 +172,8 @@ func (this *JobServer) Run() {
 								fmt.Printf("XXXX Jobber %s: %s cycled!\n",
 									this.name, key)
 								//TODO: pick less arbitrary target to kill
-								sentinel := make([]Entry, 1)
+								sentinel := make([]*Entry, 1)
+								sentinel[0] = new(Entry)
 								sentinel[0].Key = key
 								sentinel[0].IsDone = true
 								this.results <- sentinel
@@ -205,7 +205,7 @@ func (this *JobServer) Run() {
 }
 
 // Safe to call from anywhere
-func (this *JobServer) Job(jobid, target string, out chan []Entry) {
+func (this *JobServer) Job(jobid, target string, out chan []*Entry) {
 	jobReq := JobRequest{jobid, target, out}
 	// for/select in case Run() hasn't been called yet
 	for {
@@ -249,9 +249,9 @@ func parseIncludes(includes []string) map[string]bool {
 // Given a depmap of entries, return a compact prooflist with duplicates removed
 // (each duplicated entry only keeps the last copy); also returns the number of
 // ungrounded stmts in the output. The given entry st will be prepended.
-func compactify(st Entry, groundSet map[string]bool, depMap map[string][]Entry) (out []Entry, stmts int) {
+func compactify(st *Entry, groundSet map[string]bool, depMap map[string][]*Entry) (out []*Entry, stmts int) {
 	stmts = 0
-	out = make([]Entry, 0)
+	out = make([]*Entry, 0)
 	seen := make(map[string]bool)
 	for _, es := range depMap {
 		for i := range es {
@@ -273,7 +273,7 @@ func compactify(st Entry, groundSet map[string]bool, depMap map[string][]Entry) 
 	return out, stmts
 }
 
-func fmtProof(pf []Entry) string {
+func fmtProof(pf []*Entry) string {
 	msg := "==> "
 	for _, d := range pf {
 		if len(d.Fact.Tree.Deps) == 0 {
@@ -304,11 +304,12 @@ func main() {
 	// whose key is prefixed by the given target, and which has been
 	// closed. When no more results are available, we send the sentinel which
 	// has entry[0].IsDone set.
-	resolver.Jobber = func(_, target string, out chan []Entry) {
-		ch := make(chan Entry)
+	resolver.Jobber = func(_, target string, out chan []*Entry) {
+		ch := make(chan *Entry)
 		go GetFactsByPrefix(db, target, ch)
 		for entry := range ch {
-			myOut := make([]Entry, 2)
+			myOut := make([]*Entry, 2)
+			myOut[0] = new(Entry)
 			myOut[0].Key = target
 			myOut[1] = entry
 			out <- myOut
@@ -316,7 +317,8 @@ func main() {
 				break
 			}
 		}
-		sentinel := make([]Entry, 1)
+		sentinel := make([]*Entry, 1)
+		sentinel[0] = new(Entry)
 		sentinel[0].Key = target
 		sentinel[0].IsDone = true
 		out <- sentinel
@@ -330,37 +332,37 @@ func main() {
 	// in the list
 	// When no further closures exist, a sentinel will cap the stream by
 	// setting entry[0].IsDone to true.
-	closer.Jobber = func(jobid, key string, out chan []Entry) {
-		fmt.Printf("XXXX Closing string %s\n", key)
+	closer.Jobber = func(jobid, key string, out chan []*Entry) {
+		//XX fmt.Printf("XXXX Closing string %s\n", key)
 		keySexp := key[0:scan_sexp(key, 0)]
 		_ = keySexp //XXX
 		// since this is a full key, there can be only one resloution.
-		ch := make(chan []Entry, 2000)
+		ch := make(chan []*Entry, 2000)
 		resolver.Job(jobid, key, ch)
 		target := (<-ch)[1]
 		name := fmt.Sprintf("%s/%d", target.Fact.Skin.Name,
 			len(target.Fact.Tree.Deps))
 		<-ch // clear out the sentinel
-		fmt.Printf("XXXX Closing string %s==%s\n", key, name)
-		fmt.Printf("XXXX CE %s begin!\n", name)
+		//XX fmt.Printf("XXXX Closing string %s==%s\n", key, name)
+		//XX fmt.Printf("XXXX CE %s begin!\n", name)
 		numDeps := len(target.Fact.Tree.Deps)
 		if numDeps == 0 {
-			fmt.Printf("XXXX CE %s as stmt\n", name)
+			//XX fmt.Printf("XXXX CE %s as stmt\n", name)
 			// stmt has only one closure
-			packet := make([]Entry, 1)
+			packet := make([]*Entry, 1)
 			packet[0] = target
 			out <- packet
 		} else {
 			// resolve and close each dependency
-			resolveChan := make(chan []Entry, 2000)
-			tailChan := make(chan []Entry, 2000)
-			depMap := make(map[string][]Entry, numDeps)
+			resolveChan := make(chan []*Entry, 2000)
+			tailChan := make(chan []*Entry, 2000)
+			depMap := make(map[string][]*Entry, numDeps)
 			rJobs := 0
 			cJobs := make(map[string]bool)
-			var lastOut []Entry
+			var lastOut []*Entry
 			var lastStmts int
 			for _, dep := range target.Fact.Tree.Deps {
-				fmt.Printf("XXXX CE %s, requesting resolve %s\n", name, dep)
+				//XX fmt.Printf("XXXX CE %s, requesting resolve %s\n", name, dep)
 				resolver.Job(jobid, dep, resolveChan)
 				rJobs++
 			}
@@ -369,12 +371,12 @@ func main() {
 				case r := <-resolveChan:
 					if r[0].IsDone {
 						rJobs--
-						fmt.Printf("XXXX CE %s, requesting resolve %s complete, need %d/%d\n", name, r[0].Key, rJobs, len(cJobs))
+						//XX fmt.Printf("XXXX CE %s, requesting resolve %s complete, need %d/%d\n", name, r[0].Key, rJobs, len(cJobs))
 					} else {
 						if cJobs[r[1].Key] {
-							fmt.Printf("XXXX CE %s, requesting close %s as %s, already subscribed\n", name, r[1].Key, r[1].Fact.Skin.Name)
+							//XX fmt.Printf("XXXX CE %s, requesting close %s as %s, already subscribed\n", name, r[1].Key, r[1].Fact.Skin.Name)
 						} else {
-							fmt.Printf("XXXX CE %s, requesting close %s as %s\n", name, r[1].Key, r[1].Fact.Skin.Name)
+							//XX fmt.Printf("XXXX CE %s, requesting close %s as %s\n", name, r[1].Key, r[1].Fact.Skin.Name)
 							cJobs[r[1].Key] = true
 							closer.Job(jobid, r[1].Key, tailChan)
 						}
@@ -383,7 +385,7 @@ func main() {
 				case t := <-tailChan:
 					if t[0].IsDone {
 						delete(cJobs, t[0].Key)
-						fmt.Printf("XXXX CE %s, requesting close %s complete, need %d/%d\n", name, t[0].Key, rJobs, len(cJobs))
+						//XX fmt.Printf("XXXX CE %s, requesting close %s complete, need %d/%d\n", name, t[0].Key, rJobs, len(cJobs))
 					} else {
 						key := t[0].Key
 						kSexp := key[0:scan_sexp(key, 0)]
@@ -393,7 +395,7 @@ func main() {
 							depMap[kSexp] = t
 						}
 						if numDeps > 0 {
-							fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
+							//XX fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
 						} else {
 							shouldSend := false
 							if lastOut == nil {
@@ -408,7 +410,9 @@ func main() {
 									(newStmts == lastStmts &&
 										len(newOut) >= len(lastOut)) {
 									// not a better proof, reset
+									//XX fmt.Printf("XXXX CE %s no improvement: %s\n", name, fmtProof(t))
 									depMap[kSexp] = oldT
+
 								} else {
 									// better proof
 									lastOut = newOut
@@ -427,25 +431,32 @@ func main() {
 				}
 			}
 		}
-		fmt.Printf("XXXX CE %s, z all done.\n", name)
-		sentinel := make([]Entry, 1)
+		//XX fmt.Printf("XXXX CE %s, z all done.\n", name)
+		sentinel := make([]*Entry, 1)
+		sentinel[0] = new(Entry)
 		sentinel[0].Key = key
 		sentinel[0].IsDone = true
 		out <- sentinel
 	}
 	go closer.Run()
 
-	out := make(chan []Entry, 2000)
+	out := make(chan []*Entry, 2000)
 	//key := "[[[0,[1,T0.0],[0,[2,T0.0,[3,T0.1,T0.2]],[4,[2,T0.0,T0.1],[2,T0.0,T0.2]]]],[],[]],[[->,prime,|,*,\\/,0,1,S],[nat]]]" // key for euclidlem
 	//key := "[[[0,T0.0,T0.1],[[0,T0.2,T0.3],[1,T0.2,T0.0],[1,T0.3,T0.1]],[]],[[->,<->],[wff]]]" // for 3imtr3i
 	key := "[[[0,[1,[1,T0.0]],T0.0],[],[]],[[->,-.],[wff]]]!f14578e032bd77f8efc9cee923c161e6f5ca0616" // key for dn
 	//key := "[[[0,T0.0,T0.1],[T0.1],[]],[[->],[wff]]]" // key for a1i
 	closer.Job("ROOT", key, out)
+	depMap := make(map[string][]*Entry)
 	for res := range out {
 		if res[0].IsDone {
-			fmt.Printf("XXXX No more results.\n")
-			break
+			fmt.Printf("No more results.\n")
+			// TODO: why sometimes a problem here?
+			os.Exit(0)
+		} else {
+			depMap[key] = res
+			newOut, newStmts := compactify(res[0],
+				groundSet, depMap)
+			fmt.Printf("Result #%d: %s\n", newStmts, fmtProof(newOut))
 		}
-		fmt.Printf("XXXX Result length %d: %s\n", len(res), fmtProof(res))
 	}
 }
