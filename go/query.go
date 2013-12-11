@@ -245,13 +245,19 @@ func parseIncludes(includes []string) map[string]bool {
 				os.Exit(-1)
 			}
 			scanner := bufio.NewScanner(file)
+			scanner.Split(GhSplit)
 			for scanner.Scan() {
 				line := scanner.Text()
+				fmt.Fprintf(os.Stderr, "Parsed: %s\n", line)
 				// TODO: should actually parse these
 				if m := stmtRegexp.FindStringSubmatch(line); len(m) > 0 {
 					fmt.Fprintf(os.Stderr, "Axiom: %s\n", m[1])
 					out[m[1]] = true
 				}
+			}
+			if err := scanner.Err(); err != nil {
+				fmt.Fprintf(os.Stderr, "Scanner error: %v", err)
+				panic(err)
 			}
 		}
 	}
