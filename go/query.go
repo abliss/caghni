@@ -72,7 +72,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 			found = true
 			out <- keyFact
 		}
-		//XX fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
+		fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
 		if !iter.Next() {
 			break
 		}
@@ -159,19 +159,23 @@ func (this *JobServer) Run() {
 				listeners[req.Parent] = req.Out
 				this.listeners[key] = listeners
 				// check for cycles
-				//XXfmt.Printf("XXXX Jobber %s: %s waiting on %s\n", this.name, req.Parent, key)
+				if this.name == "Closer" { //XXX
+					fmt.Printf("XXXX Jobber %s: %s waiting on %s\n", this.name, req.Parent, key)
+				}
 				work := make([]string, 1)
 				work[0] = req.Parent
 				var d string
+				msg := "Cycle:\n"
 				for len(work) > 0 {
 					d, work = work[0], work[1:]
+					msg += d + "\n"
 					for k := range this.listeners[d] {
 						if _, ok = listeners[k]; !ok {
 							listeners[k] = nil
 							work = append(work, k)
 							if k == key {
-								fmt.Printf("XXXX Jobber %s: %s cycled!\n",
-									this.name, key)
+								fmt.Printf("XXXX Jobber %s: %s cycled: %s\n",
+									this.name, key, msg)
 								//TODO: pick less arbitrary target to kill
 								sentinel := make([]*Entry, 1)
 								sentinel[0] = new(Entry)
@@ -307,22 +311,32 @@ func main() {
 	// closed. When no more results are available, we send the sentinel which
 	// has entry[0].IsDone set.
 	resolver.Jobber = func(_, target string, out chan []*Entry) {
-		ch := make(chan *Entry)
-		go GetFactsByPrefix(db, target, ch)
-		for entry := range ch {
+		sendHit := func(hit *Entry) {
 			myOut := make([]*Entry, 2)
 			myOut[0] = new(Entry)
 			myOut[0].Key = target
-			myOut[1] = entry
+			myOut[1] = hit
 			out <- myOut
-			if groundSet[entry.Fact.Skin.Name] {
-				break
-			}
 		}
 		sentinel := make([]*Entry, 1)
 		sentinel[0] = new(Entry)
 		sentinel[0].Key = target
 		sentinel[0].IsDone = true
+		ch := make(chan *Entry)
+		go GetFactsByPrefix(db, target, ch)
+		entries := make([]*Entry, 0)
+		for entry := range ch {
+			if groundSet[entry.Fact.Skin.Name] {
+				sendHit(entry)
+				out <- sentinel
+				return
+			} else if len(entry.Fact.Tree.Deps) > 0 {
+				entries = append(entries, entry)
+			}
+		}
+		for _, e := range entries {
+			sendHit(e)
+		}
 		out <- sentinel
 	}
 	go resolver.Run()
@@ -373,12 +387,12 @@ func main() {
 				case r := <-resolveChan:
 					if r[0].IsDone {
 						rJobs--
-						//XX fmt.Printf("XXXX CE %s, requesting resolve %s complete, need %d/%d\n", name, r[0].Key, rJobs, len(cJobs))
+						fmt.Printf("XXXX CE %s, requesting resolve %s complete, need %d/%d\n", name, r[0].Key, rJobs, len(cJobs))
 					} else {
 						if cJobs[r[1].Key] {
-							//XX fmt.Printf("XXXX CE %s, requesting close %s as %s, already subscribed\n", name, r[1].Key, r[1].Fact.Skin.Name)
+							fmt.Printf("XXXX CE %s, requesting close %s as %s, already subscribed\n", name, r[1].Key, r[1].Fact.Skin.Name)
 						} else {
-							//XX fmt.Printf("XXXX CE %s, requesting close %s as %s\n", name, r[1].Key, r[1].Fact.Skin.Name)
+							fmt.Printf("XXXX CE %s, requesting close %s as %s\n", name, r[1].Key, r[1].Fact.Skin.Name)
 							cJobs[r[1].Key] = true
 							closer.Job(jobid, r[1].Key, tailChan)
 						}
@@ -387,7 +401,7 @@ func main() {
 				case t := <-tailChan:
 					if t[0].IsDone {
 						delete(cJobs, t[0].Key)
-						//XX fmt.Printf("XXXX CE %s, requesting close %s complete, need %d/%d\n", name, t[0].Key, rJobs, len(cJobs))
+						fmt.Printf("XXXX CE %s, requesting close %s complete, need %d/%d\n", name, t[0].Key, rJobs, len(cJobs))
 					} else {
 						key := t[0].Key
 						kSexp := key[0:scan_sexp(key, 0)]
@@ -397,7 +411,7 @@ func main() {
 							depMap[kSexp] = t
 						}
 						if numDeps > 0 {
-							//XX fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
+							fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
 						} else {
 							shouldSend := false
 							if lastOut == nil {
@@ -446,7 +460,7 @@ func main() {
 	//key := "[[[0,[1,T0.0],[0,[2,T0.0,[3,T0.1,T0.2]],[4,[2,T0.0,T0.1],[2,T0.0,T0.2]]]],[],[]],[[->,prime,|,*,\\/,0,1,S],[nat]]]" // key for euclidlem
 	//key := "[[[0,T0.0,T0.1],[[0,T0.2,T0.3],[1,T0.2,T0.0],[1,T0.3,T0.1]],[]],[[->,<->],[wff]]]" // for 3imtr3i
 	key := "[[[0,[1,[1,T0.0]],T0.0],[],[]],[[->,-.],[wff]]]!f14578e032bd77f8efc9cee923c161e6f5ca0616" // key for dn
-	//key := "[[[0,T0.0,T0.1],[T0.1],[]],[[->],[wff]]]" // key for a1i
+	//key := "[[[0,T0.0,T0.1],[T0.1],[]],[[->],[wff]]]!9942fa73cc0a2a0e14a98bdc30b89d4c06165108" // key for a1i
 	closer.Job("ROOT", key, out)
 	depMap := make(map[string][]*Entry)
 	for res := range out {
