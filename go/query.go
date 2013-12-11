@@ -14,6 +14,8 @@ import (
 	"strings"
 )
 
+const DEBUG = false
+
 type Fact struct {
 	Bone struct {
 		Stmt interface{}
@@ -143,7 +145,9 @@ func (this *JobServer) Run() {
 		select {
 		case req := <-this.reqs:
 			key := req.Target
-			//XX fmt.Printf("XXXX Request for %s\n", key)
+			if DEBUG {
+				fmt.Printf("XXXX Request for %s\n", key)
+			}
 			if last, ok := this.last[key]; ok {
 				req.Out <- last
 			}
@@ -328,7 +332,8 @@ func main() {
 		go GetFactsByPrefix(db, target, ch)
 		entries := make([]*Entry, 0)
 		for entry := range ch {
-			if groundSet[entry.Fact.Skin.Name] || entry.Key == target {
+			if entry.Key == target ||
+				(groundSet[entry.Fact.Skin.Name] && len(entry.Fact.Tree.Deps) == 0) {
 				sendHit(entry)
 				out <- sentinel
 				return
@@ -354,17 +359,22 @@ func main() {
 	// When no further closures exist, a sentinel will cap the stream by
 	// setting entry[0].IsDone to true.
 	closer.Jobber = func(jobid, key string, out chan []*Entry) {
-		//XX fmt.Printf("XXXX Closing string %s\n", key)
+		if DEBUG {
+			fmt.Printf("XXXX Closing string %s\n", key)
+		}
 		keySexp := key[0:scan_sexp(key, 0)]
-		_ = keySexp //XXX
+		_ = keySexp //XX
 		// since this is a full key, there can be only one resloution.
 		ch := make(chan []*Entry, 2000)
 		resolver.Job(jobid, key, ch)
 		target := (<-ch)[1]
-		//XX name := fmt.Sprintf("%s/%d", target.Fact.Skin.Name, len(target.Fact.Tree.Deps))
+		name := fmt.Sprintf("%s/%d", target.Fact.Skin.Name,
+			len(target.Fact.Tree.Deps))
 		<-ch // clear out the sentinel
 		//XX fmt.Printf("XXXX Closing string %s==%s\n", key, name)
-		//XX fmt.Printf("XXXX CE %s begin!\n", name)
+		if DEBUG {
+			fmt.Printf("XXXX CE %s begin!\n", name)
+		}
 		numDeps := len(target.Fact.Tree.Deps)
 		if numDeps == 0 {
 			//XX fmt.Printf("XXXX CE %s as stmt\n", name)
@@ -394,9 +404,13 @@ func main() {
 						//XX fmt.Printf("XXXX CE %s, requesting resolve %s complete, need %d/%d\n", name, r[0].Key, rJobs, len(cJobs))
 					} else {
 						if cJobs[r[1].Key] {
-							//XX fmt.Printf("XXXX CE %s, requesting close %s as %s, already subscribed\n", name, r[1].Key, r[1].Fact.Skin.Name)
+							if DEBUG {
+								fmt.Printf("XXXX CE %s, requesting close %s as %s, already subscribed\n", name, r[1].Key, r[1].Fact.Skin.Name)
+							}
 						} else {
-							//XX fmt.Printf("XXXX CE %s, requesting close %s as %s\n", name, r[1].Key, r[1].Fact.Skin.Name)
+							if DEBUG {
+								fmt.Printf("XXXX CE %s, requesting close %s as %s\n", name, r[1].Key, r[1].Fact.Skin.Name)
+							}
 							cJobs[r[1].Key] = true
 							closer.Job(jobid, r[1].Key, tailChan)
 						}
@@ -405,7 +419,9 @@ func main() {
 				case t := <-tailChan:
 					if t[0].IsDone {
 						delete(cJobs, t[0].Key)
-						//XX fmt.Printf("XXXX CE %s, requesting close %s complete, need %d/%d\n", name, t[0].Key, rJobs, len(cJobs))
+						if DEBUG {
+							fmt.Printf("XXXX CE %s, requesting close %s complete, need %d/%d\n", name, t[0].Key, rJobs, len(cJobs))
+						}
 					} else {
 						key := t[0].Key
 						kSexp := key[0:scan_sexp(key, 0)]
@@ -415,7 +431,9 @@ func main() {
 							depMap[kSexp] = t
 						}
 						if numDeps > 0 {
-							//XX fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
+							if DEBUG {
+								fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
+							}
 						} else {
 							shouldSend := false
 							if lastOut == nil {
@@ -443,7 +461,9 @@ func main() {
 							if shouldSend {
 								out <- lastOut
 								// XXX logging below
-								//XX fmt.Printf("XXXX CE %s best #%d: %s\n", name, lastStmts, fmtProof(lastOut))
+								if DEBUG {
+									fmt.Printf("XXXX CE %s best #%d: %s\n", name, lastStmts, fmtProof(lastOut))
+								}
 								break
 							}
 						}
