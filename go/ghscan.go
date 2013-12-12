@@ -3,14 +3,21 @@ package main
 import (
 	"bufio"
 	"errors"
+	"fmt"
+	"io"
 	"unicode"
 	"unicode/utf8"
 )
 
-// A bufio.SplitFunc for scanning ghilbert files.  Comments are eaten and
-// whitespace normalized; you will get a string with a cmd token and a balanced
-// sexp.
-func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
+type GhScanner struct {
+	*bufio.Scanner
+	varKinds  map[string]string
+	tvarKinds map[string]string
+}
+
+func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
+	advance int, token []byte, err error) {
+	_ = fmt.Print //XXX
 	i := 0
 	var r rune
 	var n int
@@ -50,46 +57,82 @@ func split(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		eatUntil(func() bool { return !unicode.IsSpace(r) })
 	}
 	eofError = errors.New("Unexpected EOF") // eof not allowed until end sexp
-	token = make([]byte, len(data))
-	j := 0
-	take := func(s rune) {
-		j += utf8.EncodeRune(token[j:], s)
-	}
-	space := func() {
-		if token[j-1] != ' ' {
-			token[j] = ' '
-			j++
-		}
-	}
-	take(r)
-	eatUntil(func() bool {
-		if unicode.IsSpace(r) {
-			return true
-		} else {
-			take(r)
-			return false
-		}
-	})
-	space()
+	cmdStart := i - n
+	eatUntil(func() bool { return unicode.IsSpace(r) })
+	cmd := string(data[cmdStart : i-n])
+	fmt.Printf("XXXX cmd=%s\n", cmd)
+
 	parenDepth := 0
-	eatUntil(func() bool {
+	balanced := func() bool {
 		if r == '(' {
 			parenDepth++
-			take(r)
 		} else if r == ')' {
 			parenDepth--
-			take(r)
-		} else if unicode.IsSpace(r) {
-			space()
-		} else {
-			take(r)
 		}
 		return parenDepth == 0
-	})
+	}
 
-	token = token[0:j]
+	if cmd == "stmt" {
+		var dvs, hyps, conc []byte
+		eatUntil(func() bool { return r == '(' })
+		// read DVs
+		eatUntil(func() bool { return r == '(' })
+		i -= n
+		start := i
+		eatUntil(balanced)
+		dvs = data[start:i]
+		// read Hyps
+		eatUntil(func() bool { return r == '(' })
+		i -= n
+		start = i
+		eatUntil(balanced)
+		hyps = data[start:i]
+		// read Conc
+		start = i
+		parenDepth = 1
+		eatUntil(balanced)
+		conc = data[start : i-n]
+		fmt.Printf("XXXX [%s/%s/%s]\n", dvs, hyps, conc)
+		token = make([]byte, 0)
+	} else if cmd == "tvar" || cmd == "var" {
+		eatUntil(func() bool { return r == '(' })
+		start := i
+		eatUntil(func() bool { return unicode.IsSpace(r) })
+		kind := string(data[start : i-n])
+		start = i
+		eatUntil(func() bool {
+			if unicode.IsSpace(r) || r == ')' {
+				if i-n > start {
+					tok := string(data[start : i-n])
+					fmt.Printf("%s %s %s\n", cmd, kind, tok)
+					if cmd == "tvar" {
+						this.tvarKinds[tok] = kind
+					} else {
+						this.varKinds[tok] = kind
+					}
+				}
+				start = i
+			}
+			return r == ')'
+		})
+		token = make([]byte, 0)
+	} else {
+		// other commands (kind, term) we skip.
+		eatUntil(balanced)
+		token = make([]byte, 0)
+	}
+	fmt.Printf("XXXX Advancing %d\n", i)
+
 	advance = i
 	return
 }
 
-var GhSplit bufio.SplitFunc = split
+func NewScanner(r io.Reader) *GhScanner {
+	scanner := GhScanner{
+		bufio.NewScanner(r),
+		make(map[string]string),
+		make(map[string]string),
+	}
+	scanner.Split(scanner.ghSplit)
+	return &scanner
+}

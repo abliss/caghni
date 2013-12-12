@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"flag"
@@ -244,8 +243,7 @@ func parseIncludes(includes []string) map[string]bool {
 					include, err)
 				os.Exit(-1)
 			}
-			scanner := bufio.NewScanner(file)
-			scanner.Split(GhSplit)
+			scanner := NewScanner(file)
 			for scanner.Scan() {
 				line := scanner.Text()
 				fmt.Fprintf(os.Stderr, "Parsed: %s\n", line)
@@ -261,6 +259,7 @@ func parseIncludes(includes []string) map[string]bool {
 			}
 		}
 	}
+	os.Exit(0)
 	return out
 }
 
