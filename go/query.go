@@ -229,10 +229,10 @@ func (this *JobServer) Job(jobid, target string, out chan []*Entry) {
 
 // Parses a ghi and emits the label of each stmt on out, followed by an empty
 // sentinel.
-func parseInclude(fn string, out chan string) {
+func parseInterface(fn string, out chan string) {
 	file, err := os.Open(fn)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Can't open include %s: %v\n", fn, err)
+		fmt.Fprintf(os.Stderr, "Can't open interface %s: %v\n", fn, err)
 		os.Exit(-1)
 	}
 	scanner := NewScanner(file)
@@ -249,13 +249,13 @@ func parseInclude(fn string, out chan string) {
 	out <- ""
 }
 
-func parseIncludes(includes []string) map[string]bool {
+func parseInterfaces(interfaces []string) map[string]bool {
 	out := make(map[string]bool)
 	ch := make(chan string)
 	jobs := 0
-	for _, include := range includes {
-		if len(include) > 0 {
-			go parseInclude(include, ch)
+	for _, interfaceFn := range interfaces {
+		if len(interfaceFn) > 0 {
+			go parseInterface(interfaceFn, ch)
 			jobs++
 		}
 	}
@@ -310,7 +310,8 @@ func fmtProof(pf []*Entry) string {
 
 func main() {
 	dbPath := flag.String("d", "facts.leveldb", "path to facts.leveldb")
-	includes := flag.String("i", "", "comma-separated list of .ghi includes")
+	imports := flag.String("i", "", "comma-separated list of .ghi imports")
+	exports := flag.String("e", "", "comma-separated list of .ghi exports")
 	flag.Parse()
 	opt := opt.Options{ErrorIfMissing: true}
 	db, err := leveldb.OpenFile(*dbPath, &opt)
@@ -319,7 +320,8 @@ func main() {
 		os.Exit(-1)
 	}
 	defer db.Close()
-	groundSet := parseIncludes(strings.Split(*includes, ","))
+	groundSet := parseInterfaces(strings.Split(*imports, ","))
+	_ = parseInterfaces(strings.Split(*exports, ","))
 	var resolver, closer JobServer
 	resolver.name = "Resolver"
 	// The resolver expects a prefix of a key, and always returns an array of

@@ -90,7 +90,8 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		hyps = data[start:i]
 		// read Conc
 		eatUntil(func() bool { return !unicode.IsSpace(r) })
-		start = i - n
+		i -= n
+		start = i
 		parenDepth = 1
 		eatUntil(balanced)
 		conc = data[start : i-n]
