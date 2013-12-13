@@ -1,0 +1,19 @@
+# Adapted mechanically from set.mm
+# todo: proper attribution
+
+kind (wff)
+tvar (wff ph)
+tvar (wff ps)
+tvar (wff ch)
+tvar (wff th)
+tvar (wff ta)
+term (wff (-. ph))
+term (wff (-> ph ps))
+term (wff (<-> ph ps))
+term (wff (\/ ph ps))
+term (wff (/\ ph ps))
+term (wff (\/\/ ph ps ch))
+term (wff (/\/\ ph ps ch))
+term (wff (-/\ ph ps))
+stmt (nic-mp () (ph (-/\ ph (-/\ ch ps))) ps)
+stmt (nic-ax () () (-/\ (-/\ ph (-/\ ch ps)) (-/\ (-/\ ta (-/\ ta ta)) (-/\ (-/\ th ch) (-/\ (-/\ ph th) (-/\ ph th))))))

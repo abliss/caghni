@@ -1,0 +1,8 @@
+kind (wff)
+tvar (wff ph ps ch th ta)
+term (wff (-. ph))
+term (wff (-> ph ps))
+
+stmt (ax-meredith () () (-> (-> (-> (-> (-> ph ps) (-> (-. ch) (-. th))) ch) ta) (-> (-> ta ph) (-> th ph))))
+
+stmt (ax-mp () (ph (-> ph ps)) ps)

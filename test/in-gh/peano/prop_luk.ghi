@@ -1,0 +1,16 @@
+# Adapted mechanically from set.mm
+# todo: proper attribution
+
+kind (wff)
+tvar (wff ph)
+tvar (wff ps)
+tvar (wff ch)
+tvar (wff th)
+tvar (wff ta)
+
+term (wff (-. ph))
+term (wff (-> ph ps))
+stmt (luk-1 () () (-> (-> ph ps) (-> (-> ps ch) (-> ph ch))))
+stmt (luk-2 () () (-> (-> (-. ph) ph) ph))
+stmt (luk-3 () () (-> ph (-> (-. ph) ps)))
+stmt (ax-mp () (ph (-> ph ps)) ps)
