@@ -229,7 +229,7 @@ func (this *JobServer) Job(jobid, target string, out chan []*Entry) {
 
 // Parses a ghi and emits the label of each stmt on out, followed by an empty
 // sentinel.
-func parseInterface(fn string, out chan string) {
+func parseInterface(fn string, out chan *Entry) {
 	file, err := os.Open(fn)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Can't open interface %s: %v\n", fn, err)
@@ -237,21 +237,22 @@ func parseInterface(fn string, out chan string) {
 	}
 	scanner := NewScanner(file)
 	for scanner.Scan() {
-		token := scanner.Text()
+		name := scanner.Text()
 		// TODO: one day these will be keys, not labels
-		fmt.Fprintf(os.Stderr, "Axiom: %s\n", token)
-		out <- token
+		fmt.Fprintf(os.Stderr, "Axiom: %s\n", name)
+		//XXX pickup
+		out <- scanner.Entry()
 	}
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "Scanner error: %v", err)
 		panic(err)
 	}
-	out <- ""
+	out <- nil
 }
 
-func parseInterfaces(interfaces []string) map[string]bool {
-	out := make(map[string]bool)
-	ch := make(chan string)
+func parseInterfaces(interfaces []string) map[string]*Entry {
+	out := make(map[string]*Entry)
+	ch := make(chan *Entry)
 	jobs := 0
 	for _, interfaceFn := range interfaces {
 		if len(interfaceFn) > 0 {
@@ -261,8 +262,8 @@ func parseInterfaces(interfaces []string) map[string]bool {
 	}
 	for jobs > 0 {
 		axiom := <-ch
-		if len(axiom) > 0 {
-			out[axiom] = true
+		if axiom != nil {
+			out[axiom.Key] = axiom
 		} else {
 			jobs--
 		}
@@ -273,7 +274,7 @@ func parseInterfaces(interfaces []string) map[string]bool {
 // Given a depmap of entries, return a compact prooflist with duplicates removed
 // (each duplicated entry only keeps the last copy); also returns the number of
 // ungrounded stmts in the output. The given entry st will be prepended.
-func compactify(st *Entry, groundSet map[string]bool, depMap map[string][]*Entry) (out []*Entry, stmts int) {
+func compactify(st *Entry, groundSet map[string]*Entry, depMap map[string][]*Entry) (out []*Entry, stmts int) {
 	stmts = 0
 	out = make([]*Entry, 0)
 	seen := make(map[string]bool)
@@ -283,7 +284,8 @@ func compactify(st *Entry, groundSet map[string]bool, depMap map[string][]*Entry
 			if !seen[e.Key] {
 				seen[e.Key] = true
 				out = append(out, e)
-				if len(e.Fact.Tree.Deps) == 0 && !groundSet[e.Fact.Skin.Name] {
+				if (len(e.Fact.Tree.Deps) == 0) &&
+					(groundSet[e.Fact.Skin.Name] != nil) {
 					stmts++
 				}
 			}
@@ -322,6 +324,7 @@ func main() {
 	defer db.Close()
 	groundSet := parseInterfaces(strings.Split(*imports, ","))
 	_ = parseInterfaces(strings.Split(*exports, ","))
+	os.Exit(0) //XXX
 	var resolver, closer JobServer
 	resolver.name = "Resolver"
 	// The resolver expects a prefix of a key, and always returns an array of
@@ -347,7 +350,8 @@ func main() {
 		entries := make([]*Entry, 0)
 		for entry := range ch {
 			if entry.Key == target ||
-				(groundSet[entry.Fact.Skin.Name] && len(entry.Fact.Tree.Deps) == 0) {
+				((groundSet[entry.Fact.Skin.Name] != nil) &&
+					(len(entry.Fact.Tree.Deps) == 0)) {
 				sendHit(entry)
 				out <- sentinel
 				return
