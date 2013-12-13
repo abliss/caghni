@@ -237,11 +237,12 @@ func parseInterface(fn string, out chan *Entry) {
 	}
 	scanner := NewScanner(file)
 	for scanner.Scan() {
-		name := scanner.Text()
+		_ = scanner.Text()
 		// TODO: one day these will be keys, not labels
-		fmt.Fprintf(os.Stderr, "Axiom: %s\n", name)
 		//XXX pickup
-		out <- scanner.Entry()
+		e := scanner.Entry()
+		fmt.Fprintf(os.Stderr, "Axiom: %s\n", e.Fact.Skin.Name)
+		out <- e
 	}
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "Scanner error: %v", err)
@@ -324,6 +325,8 @@ func main() {
 	defer db.Close()
 	groundSet := parseInterfaces(strings.Split(*imports, ","))
 	_ = parseInterfaces(strings.Split(*exports, ","))
+	fmt.Printf("XXXX quitting.\n")
+
 	os.Exit(0) //XXX
 	var resolver, closer JobServer
 	resolver.name = "Resolver"

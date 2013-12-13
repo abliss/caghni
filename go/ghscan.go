@@ -16,6 +16,28 @@ type GhScanner struct {
 	lastEntry *Entry
 }
 
+type sexp struct {
+	Leaf string
+	Kids []*sexp
+	mama *sexp
+}
+
+func (s *sexp) toString() string {
+	if len(s.Leaf) > 0 {
+		return s.Leaf
+	}
+	out := "("
+	first := true
+	for _, k := range s.Kids {
+		if !first {
+			out += ","
+		}
+		first = false
+		out += k.toString()
+	}
+	out += ")"
+	return out
+}
 func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 	advance int, token []byte, err error) {
 	i := 0
@@ -60,117 +82,78 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 	cmdStart := i - n
 	eatUntil(func() bool { return unicode.IsSpace(r) })
 	cmd := string(data[cmdStart : i-n])
-
-	parenDepth := 0
-	balanced := func() bool {
-		if r == '(' {
-			parenDepth++
-		} else if r == ')' {
-			parenDepth--
+	eatUntil(func() bool { return !unicode.IsSpace(r) })
+	i -= n
+	var s *sexp
+	tokStart := i
+	// eat sexp  TODO: needs testing
+	eatUntil(func() bool {
+		isSpace := unicode.IsSpace(r)
+		if r == ')' || isSpace {
+			if i-n > tokStart {
+				tok := new(sexp)
+				tok.Leaf = string(data[tokStart : i-n])
+				tok.mama = s
+				s.Kids = append(s.Kids, tok)
+			}
+			tokStart = i
 		}
-		return parenDepth == 0
-	}
+
+		if r == '(' {
+			kid := new(sexp)
+			kid.mama = s
+			if s != nil {
+				s.Kids = append(s.Kids, kid)
+			}
+			s = kid
+			tokStart = i
+		} else if r == ')' {
+			if s.mama == nil {
+				return true
+			}
+			s = s.mama
+		}
+		return false
+	})
 
 	if cmd == "stmt" {
-		var label []byte
-		var dvStart, hypStart, concStart, end int
-		eatUntil(func() bool { return r == '(' })
-		start := i
-		eatUntil(func() bool { return unicode.IsSpace(r) })
-		label = data[start : i-n]
-		// read DVs
-		eatUntil(func() bool { return r == '(' })
-		i -= n
-		dvStart = i
-		eatUntil(balanced)
-		// read Hyps
-		eatUntil(func() bool { return r == '(' })
-		i -= n
-		hypStart = i
-		eatUntil(balanced)
-		// read Conc
-		eatUntil(func() bool { return !unicode.IsSpace(r) })
-		i -= n
-		concStart = i
-		parenDepth = 1
-		eatUntil(balanced)
-		end = i
-		// We just emit the label to Text();
-		// the rest is available in thus.Entry()
-		token = label
-		entry := new(Entry)
-		entry.Fact.Skin.Name = string(label)
-		// Now build the key
-		key := ""
-		terms := make([]string, 0)
+		// Emit the token as flat text. Access to the parsed fact is through
+		// Entry()
+		token = data[cmdStart:i]
 		kinds := make([]string, 0)
-		i = concStart
-		parenDepth = 1
-		start = i
-		argNum := make([]int, 1)
-		argNum[0] = -1
-		fmt.Printf("XXXX Parsing %s\n", data[i:end])
-
-		eatUntil(func() bool {
-			if r == ')' || unicode.IsSpace(r) {
-				if i-n > start {
-					tok := string(data[start : i-n])
-					if argNum[len(argNum)-1] == 0 {
-						key += "T(" + tok + ")"
-					} else {
-						key += ",V(" + tok + ")"
-					}
-					argNum[len(argNum)-1]++
-				}
-				start = i
-			}
-			if r == '(' {
-				parenDepth++
-				if argNum[len(argNum)-1] > 0 {
-					key += ","
-				}
-				key += "["
-				start = i
-				argNum = append(argNum, 0)
-			} else if r == ')' {
-				parenDepth--
-				key += "]"
-				argNum = argNum[0:len(argNum)]
-			}
-			return parenDepth == 0
-		})
-		key = key[0 : len(key)-1] // strip trailing ']'
-		_ = dvStart
-		_ = hypStart
-		_ = terms
+		terms := make([]string, 0)
+		if len(s.Kids) != 4 {
+			err = errors.New(fmt.Sprintf("Bad stmt command: %s\n",
+				data[cmdStart:i]))
+			panic(err)
+		}
+		label, dvs, hyps, conc := s.Kids[0], s.Kids[1], s.Kids[2], s.Kids[3]
+		e := new(Entry)
+		e.Fact.Skin.Name = label.Leaf
+		this.lastEntry = e
+		_ = dvs
+		_ = hyps
+		_ = conc
 		_ = kinds
-		fmt.Printf("XXXX %s\n", key)
-		i = end
+		_ = terms
 	} else if cmd == "tvar" || cmd == "var" {
-		eatUntil(func() bool { return r == '(' })
-		start := i
-		eatUntil(func() bool { return unicode.IsSpace(r) })
-		kind := string(data[start : i-n])
-		start = i
-		eatUntil(func() bool {
-			if unicode.IsSpace(r) || r == ')' {
-				if i-n > start {
-					tok := string(data[start : i-n])
-					if cmd == "tvar" {
-						this.tvarKinds[tok] = kind
-					} else {
-						this.varKinds[tok] = kind
-					}
-				}
-				start = i
+		kind := s.Kids[0].Leaf
+		for _, vars := range s.Kids[1:] {
+			varName := vars.Leaf
+			if cmd == "tvar" {
+				this.tvarKinds[varName] = kind
+			} else {
+				this.varKinds[varName] = kind
 			}
-			return r == ')'
-		})
+			//XX fmt.Printf("XXXX %s %s = %s\n", cmd, varName, kind)
+		}
 		token = make([]byte, 0)
 	} else {
 		// other commands (kind, term) we skip.
-		eatUntil(balanced)
 		token = make([]byte, 0)
+	}
+	if false {
+		fmt.Printf("XXXX %s %s\n", cmd, s.toString())
 	}
 	advance = i
 	return
@@ -192,7 +175,7 @@ func (this *GhScanner) splitWrap(data []byte, atEOF bool) (
 }
 
 func (this *GhScanner) Entry() *Entry {
-	return nil //XXX
+	return this.lastEntry
 }
 
 func NewScanner(r io.Reader) *GhScanner {
