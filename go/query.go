@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const DEBUG = false
+const DEBUG = true
 
 type Fact struct {
 	Bone struct {
@@ -72,7 +72,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 			found = true
 			out <- keyFact
 		}
-		//fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
+		fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
 		if !iter.Next() {
 			break
 		}
@@ -241,8 +241,10 @@ func parseInterface(fn string, out chan *Entry) {
 		// TODO: one day these will be keys, not labels
 		//XXX pickup
 		e := scanner.Entry()
-		fmt.Fprintf(os.Stderr, "Axiom: %s\n%s\n%s\n",
-			e.Fact.Skin.Name, e.Key, e.Fact)
+		if DEBUG {
+			fmt.Fprintf(os.Stderr, "Axiom: %s\n%s\n%s\n",
+				e.Fact.Skin.Name, e.Key, e.Fact)
+		}
 		out <- e
 	}
 	if err := scanner.Err(); err != nil {
@@ -325,10 +327,7 @@ func main() {
 	}
 	defer db.Close()
 	groundSet := parseInterfaces(strings.Split(*imports, ","))
-	_ = parseInterfaces(strings.Split(*exports, ","))
-	fmt.Printf("XXXX quitting.\n")
-
-	os.Exit(0) //XXX
+	targets := parseInterfaces(strings.Split(*exports, ","))
 	var resolver, closer JobServer
 	resolver.name = "Resolver"
 	// The resolver expects a prefix of a key, and always returns an array of
@@ -337,6 +336,7 @@ func main() {
 	// whose key is prefixed by the given target, and which has been
 	// closed. When no more results are available, we send the sentinel which
 	// has entry[0].IsDone set.
+	// Currently, we only ever send one hit.
 	resolver.Jobber = func(jobid, target string, out chan []*Entry) {
 		sendHit := func(hit *Entry) {
 			myOut := make([]*Entry, 2)
@@ -344,20 +344,23 @@ func main() {
 			myOut[0].Key = target
 			myOut[1] = hit
 			out <- myOut
+			sentinel := make([]*Entry, 1)
+			sentinel[0] = new(Entry)
+			sentinel[0].Key = target
+			sentinel[0].IsDone = true
+			out <- sentinel
 		}
-		sentinel := make([]*Entry, 1)
-		sentinel[0] = new(Entry)
-		sentinel[0].Key = target
-		sentinel[0].IsDone = true
+		if axiom, ok := groundSet[target]; ok {
+			sendHit(axiom)
+			return
+		}
+
 		ch := make(chan *Entry)
 		go GetFactsByPrefix(db, target, ch)
 		entries := make([]*Entry, 0)
 		for entry := range ch {
-			if entry.Key == target ||
-				((groundSet[entry.Fact.Skin.Name] != nil) &&
-					(len(entry.Fact.Tree.Deps) == 0)) {
+			if entry.Key == target {
 				sendHit(entry)
-				out <- sentinel
 				return
 			} else if len(entry.Fact.Tree.Deps) > 0 {
 				entries = append(entries, entry)
@@ -369,7 +372,6 @@ func main() {
 		}
 		c := <-closures
 		sendHit(c[0])
-		out <- sentinel
 	}
 	go resolver.Run()
 
@@ -386,7 +388,7 @@ func main() {
 		}
 		keySexp := key[0:scan_sexp(key, 0)]
 		_ = keySexp //XX
-		// since this is a full key, there can be only one resloution.
+		// there can be only one resloution.
 		ch := make(chan []*Entry, 2000)
 		resolver.Job(jobid, key, ch)
 		target := (<-ch)[1]
@@ -482,7 +484,6 @@ func main() {
 							}
 							if shouldSend {
 								out <- lastOut
-								// XXX logging below
 								if DEBUG {
 									fmt.Printf("XXXX CE %s best #%d: %s\n", name, lastStmts, fmtProof(lastOut))
 								}
@@ -502,26 +503,30 @@ func main() {
 	}
 	go closer.Run()
 
-	out := make(chan []*Entry, 2000)
-	//key := "[[[0,[1,T0.0],[0,[2,T0.0,[3,T0.1,T0.2]],[4,[2,T0.0,T0.1],[2,T0.0,T0.2]]]],[],[]],[[->,prime,|,*,\\/,0,1,S],[nat]]]" // key for euclidlem
-	key := "[[[0,T0.0,T0.1],[[0,T0.2,T0.3],[1,T0.2,T0.0],[1,T0.3,T0.1]],[]],[[->,<->],[wff]]]" // for 3imtr3i
-	//key := "[[[0,[1,[1,T0.0]],T0.0],[],[]],[[->,-.],[wff]]]!f14578e032bd77f8efc9cee923c161e6f5ca0616" // key for dn
-	//key := "[[[0,T0.0,T0.1],[T0.1],[]],[[->],[wff]]]!9942fa73cc0a2a0e14a98bdc30b89d4c06165108" // key for a1i
-	resolver.Job("ROOT", key, out)
-	f := <-out
-	<-out // clear sentinel
-	closer.Job("ROOT", f[1].Key, out)
-	depMap := make(map[string][]*Entry)
+	out := make(chan []*Entry, len(targets))
+	jobs := 0
+	for key := range targets {
+		fmt.Printf("XXXX closing %s\n", key)
+		closer.Job("ROOT", key, out)
+		jobs++
+	}
+
 	for res := range out {
+		fmt.Printf("Result %v\n", res)
+
 		if res[0].IsDone {
-			fmt.Printf("No more results.\n")
-			// TODO: why sometimes a problem here?
-			os.Exit(0)
+			jobs--
+			if jobs == 0 {
+				os.Exit(0)
+			}
 		} else {
-			depMap[key] = res
-			newOut, newStmts := compactify(res[0],
-				groundSet, depMap)
+			depMap := make(map[string][]*Entry)
+
+			depMap[res[0].Key] = res
+			newOut, newStmts := compactify(nil, groundSet, depMap)
 			fmt.Printf("Result #%d: %s\n", newStmts, fmtProof(newOut))
+			// TODO: why sometimes a problem here?
+
 		}
 	}
 }

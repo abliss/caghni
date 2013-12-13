@@ -84,7 +84,7 @@ module.exports = function(obj) {
             return num
         },
         nameVar: function(cmd, kind, s) {
-            var key = cmd[0].toUpperCase();
+            var key = cmd[0].toUpperCase(); // "T" or "V"
             var kindNum = this.nameKind(kind);
             var varNum = indexOf(this.Skin[key][kindNum], s);
             return key + kindNum + '.' + varNum;
