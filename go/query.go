@@ -523,24 +523,19 @@ func main() {
 		resolver.Job("ROOT."+key, key, out)
 		jobs++
 	}
-	outKeys := make(map[string]*Entry)
+	depMap := make(map[string][]*Entry)
+
 	for jobs > 0 {
 		res := <-out
-		//XX fmt.Printf("Result len %d for %s\n", len(res), res[0].Key)
-		if res[0].IsDone {
-			if outKeys[res[0].Key] == nil {
-				outKeys[res[0].Key] = res[0]
+		if !res[0].IsDone {
+			//XX fmt.Printf("Result len %d for %s\n", len(res), res[0].Key)
+			if depMap[res[0].Key] == nil {
+				depMap[res[0].Key] = res[1:]
 				jobs--
 			}
-		} else {
-			depMap := make(map[string][]*Entry)
-
-			depMap[res[0].Key] = res
-			newOut, newStmts := compactify(nil, groundSet, depMap)
-			fmt.Printf("Result #%d: %s\n", newStmts, fmtProof(newOut))
-			// TODO: why sometimes a problem here?
-
 		}
 	}
+	newOut, newStmts := compactify(nil, groundSet, depMap)
+	fmt.Printf("Result #%d: %s\n", newStmts, fmtProof(newOut))
 	os.Exit(0)
 }
