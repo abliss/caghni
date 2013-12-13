@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const DEBUG = true
+const DEBUG = false
 
 type Fact struct {
 	Bone struct {
@@ -72,7 +72,9 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 			found = true
 			out <- keyFact
 		}
-		fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
+		if DEBUG {
+			fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
+		}
 		if !iter.Next() {
 			break
 		}
@@ -144,7 +146,7 @@ func (this *JobServer) Run() {
 		case req := <-this.reqs:
 			key := req.Target
 			if DEBUG {
-				fmt.Printf("XXXX Request for %s\n", key)
+				fmt.Printf("XXXX Request for %s: %s: %v\n", req.Parent, key, req.Out)
 			}
 			if last, ok := this.last[key]; ok {
 				req.Out <- last
@@ -195,7 +197,6 @@ func (this *JobServer) Run() {
 			}
 		case res := <-this.results:
 			key := res[0].Key
-			//XX fmt.Printf("XXXX Response for for %s\n", key)
 			if _, ok := this.done[key]; !ok {
 				for _, listenerChan := range this.listeners[key] {
 					if listenerChan != nil {
@@ -306,10 +307,14 @@ func compactify(st *Entry, groundSet map[string]*Entry, depMap map[string][]*Ent
 func fmtProof(pf []*Entry) string {
 	msg := "==> "
 	for _, d := range pf {
-		if len(d.Fact.Tree.Deps) == 0 {
-			msg += "#"
+		if d == nil {
+			msg += "NIL! "
+		} else {
+			if len(d.Fact.Tree.Deps) == 0 {
+				msg += "#"
+			}
+			msg += d.Fact.Skin.Name + " "
 		}
-		msg += d.Fact.Skin.Name + " "
 	}
 	return msg
 }
@@ -371,7 +376,16 @@ func main() {
 			closer.Job(jobid, e.Key, closures)
 		}
 		c := <-closures
-		sendHit(c[0])
+		myOut := make([]*Entry, 1)
+		myOut[0] = new(Entry)
+		myOut[0].Key = target
+		myOut = append(myOut, c...)
+		out <- myOut
+		sentinel := make([]*Entry, 1)
+		sentinel[0] = new(Entry)
+		sentinel[0].Key = target
+		sentinel[0].IsDone = true
+		out <- sentinel
 	}
 	go resolver.Run()
 
@@ -386,8 +400,6 @@ func main() {
 		if DEBUG {
 			fmt.Printf("XXXX Closing string %s\n", key)
 		}
-		keySexp := key[0:scan_sexp(key, 0)]
-		_ = keySexp //XX
 		// there can be only one resloution.
 		ch := make(chan []*Entry, 2000)
 		resolver.Job(jobid, key, ch)
@@ -397,11 +409,13 @@ func main() {
 		<-ch // clear out the sentinel
 		//XX fmt.Printf("XXXX Closing string %s==%s\n", key, name)
 		if DEBUG {
-			fmt.Printf("XXXX CE %s begin!\n", name)
+			fmt.Printf("XXXX CE %s begin for %s:%s!\n", name, jobid, key)
 		}
 		numDeps := len(target.Fact.Tree.Deps)
 		if numDeps == 0 {
-			//XX fmt.Printf("XXXX CE %s as stmt\n", name)
+			if DEBUG {
+				fmt.Printf("XXXX CE %s as stmt\n", name)
+			}
 			// stmt has only one closure
 			packet := make([]*Entry, 1)
 			packet[0] = target
@@ -485,7 +499,7 @@ func main() {
 							if shouldSend {
 								out <- lastOut
 								if DEBUG {
-									fmt.Printf("XXXX CE %s best #%d: %s\n", name, lastStmts, fmtProof(lastOut))
+									fmt.Printf("XXXX CE %s best #%d: %s for %s\n", name, lastStmts, fmtProof(lastOut), key)
 								}
 								break
 							}
@@ -506,18 +520,17 @@ func main() {
 	out := make(chan []*Entry, len(targets))
 	jobs := 0
 	for key := range targets {
-		fmt.Printf("XXXX closing %s\n", key)
-		closer.Job("ROOT", key, out)
+		resolver.Job("ROOT."+key, key, out)
 		jobs++
 	}
-
-	for res := range out {
-		fmt.Printf("Result %v\n", res)
-
+	outKeys := make(map[string]*Entry)
+	for jobs > 0 {
+		res := <-out
+		//XX fmt.Printf("Result len %d for %s\n", len(res), res[0].Key)
 		if res[0].IsDone {
-			jobs--
-			if jobs == 0 {
-				os.Exit(0)
+			if outKeys[res[0].Key] == nil {
+				outKeys[res[0].Key] = res[0]
+				jobs--
 			}
 		} else {
 			depMap := make(map[string][]*Entry)
@@ -529,4 +542,5 @@ func main() {
 
 		}
 	}
+	os.Exit(0)
 }
