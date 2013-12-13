@@ -17,7 +17,6 @@ type GhScanner struct {
 
 func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 	advance int, token []byte, err error) {
-	_ = fmt.Print //XXX
 	i := 0
 	var r rune
 	var n int
@@ -60,7 +59,6 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 	cmdStart := i - n
 	eatUntil(func() bool { return unicode.IsSpace(r) })
 	cmd := string(data[cmdStart : i-n])
-	fmt.Printf("XXXX cmd=%s\n", cmd)
 
 	parenDepth := 0
 	balanced := func() bool {
@@ -73,12 +71,15 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 	}
 
 	if cmd == "stmt" {
-		var dvs, hyps, conc []byte
+		var label, dvs, hyps, conc []byte
 		eatUntil(func() bool { return r == '(' })
+		start := i
+		eatUntil(func() bool { return unicode.IsSpace(r) })
+		label = data[start : i-n]
 		// read DVs
 		eatUntil(func() bool { return r == '(' })
 		i -= n
-		start := i
+		start = i
 		eatUntil(balanced)
 		dvs = data[start:i]
 		// read Hyps
@@ -88,12 +89,15 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		eatUntil(balanced)
 		hyps = data[start:i]
 		// read Conc
-		start = i
+		eatUntil(func() bool { return !unicode.IsSpace(r) })
+		start = i - n
 		parenDepth = 1
 		eatUntil(balanced)
 		conc = data[start : i-n]
-		fmt.Printf("XXXX [%s/%s/%s]\n", dvs, hyps, conc)
-		token = make([]byte, 0)
+		token = label // TODO: someday, emit key instead of label
+		if false {
+			fmt.Printf("XXXX [%s:%s/%s/%s]\n", label, dvs, hyps, conc)
+		}
 	} else if cmd == "tvar" || cmd == "var" {
 		eatUntil(func() bool { return r == '(' })
 		start := i
@@ -104,7 +108,6 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 			if unicode.IsSpace(r) || r == ')' {
 				if i-n > start {
 					tok := string(data[start : i-n])
-					fmt.Printf("%s %s %s\n", cmd, kind, tok)
 					if cmd == "tvar" {
 						this.tvarKinds[tok] = kind
 					} else {
@@ -121,9 +124,22 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		eatUntil(balanced)
 		token = make([]byte, 0)
 	}
-	fmt.Printf("XXXX Advancing %d\n", i)
-
 	advance = i
+	return
+}
+
+// NB: ghSplit emits empty tokens on ignored text. This wrapper
+// eliminates those.
+func (this *GhScanner) splitWrap(data []byte, atEOF bool) (
+	advance int, token []byte, err error) {
+	var a int
+	for len(token) == 0 && err == nil {
+		a, token, err = this.ghSplit(data[advance:], atEOF)
+		if a == 0 {
+			return 0, nil, err
+		}
+		advance += a
+	}
 	return
 }
 
@@ -133,6 +149,6 @@ func NewScanner(r io.Reader) *GhScanner {
 		make(map[string]string),
 		make(map[string]string),
 	}
-	scanner.Split(scanner.ghSplit)
+	scanner.Split(scanner.splitWrap)
 	return &scanner
 }

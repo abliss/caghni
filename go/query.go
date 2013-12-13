@@ -8,7 +8,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"os"
-	"regexp"
 	"runtime"
 	"strings"
 )
@@ -228,38 +227,46 @@ func (this *JobServer) Job(jobid, target string, out chan []*Entry) {
 	}
 }
 
+// Parses a ghi and emits the label of each stmt on out, followed by an empty
+// sentinel.
+func parseInclude(fn string, out chan string) {
+	file, err := os.Open(fn)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Can't open include %s: %v\n", fn, err)
+		os.Exit(-1)
+	}
+	scanner := NewScanner(file)
+	for scanner.Scan() {
+		token := scanner.Text()
+		// TODO: one day these will be keys, not labels
+		fmt.Fprintf(os.Stderr, "Axiom: %s\n", token)
+		out <- token
+	}
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Scanner error: %v", err)
+		panic(err)
+	}
+	out <- ""
+}
+
 func parseIncludes(includes []string) map[string]bool {
 	out := make(map[string]bool)
-	stmtRegexp, err := regexp.Compile("^\\s*stmt\\s+\\((\\S+)\\s")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Bad regexp: %v\n", err)
-		panic(-1)
-	}
+	ch := make(chan string)
+	jobs := 0
 	for _, include := range includes {
 		if len(include) > 0 {
-			file, err := os.Open(include)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Can't open include %s: %v\n",
-					include, err)
-				os.Exit(-1)
-			}
-			scanner := NewScanner(file)
-			for scanner.Scan() {
-				line := scanner.Text()
-				fmt.Fprintf(os.Stderr, "Parsed: %s\n", line)
-				// TODO: should actually parse these
-				if m := stmtRegexp.FindStringSubmatch(line); len(m) > 0 {
-					fmt.Fprintf(os.Stderr, "Axiom: %s\n", m[1])
-					out[m[1]] = true
-				}
-			}
-			if err := scanner.Err(); err != nil {
-				fmt.Fprintf(os.Stderr, "Scanner error: %v", err)
-				panic(err)
-			}
+			go parseInclude(include, ch)
+			jobs++
 		}
 	}
-	os.Exit(0)
+	for jobs > 0 {
+		axiom := <-ch
+		if len(axiom) > 0 {
+			out[axiom] = true
+		} else {
+			jobs--
+		}
+	}
 	return out
 }
 
