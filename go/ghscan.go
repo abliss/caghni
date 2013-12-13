@@ -22,6 +22,14 @@ type sexp struct {
 	mama *sexp
 }
 
+// TODO: not sure whether this is necessary??
+func (s *sexp) destroy() {
+	s.mama = nil
+	for _, k := range s.Kids {
+		k.destroy()
+	}
+}
+
 func (s *sexp) toString() string {
 	if len(s.Leaf) > 0 {
 		return s.Leaf
@@ -226,15 +234,18 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		this.lastEntry = new(Entry)
 		this.lastEntry.Fact.Skin.Name = label.Leaf
 
-		_ = dvs
-		_ = hyps
-		_ = conc
-		bone := make([]string, 3)
-		bone[0] = this.stringifyTerm(conc)
-		bone[1] = bracketize(mapify(hyps.Kids, this.stringifyTerm))
-		bone[2] = bracketize(mapify(dvs.Kids, this.stringify))
-		key := bracketize(bone)
-		fmt.Printf("XXXX key=%s\n%v\n", key, this.lastEntry)
+		key := bracketize([]string{
+			bracketize([]string{
+				this.stringifyTerm(conc),
+				bracketize(mapify(hyps.Kids, this.stringifyTerm)),
+				bracketize(mapify(dvs.Kids, this.stringify)),
+			}),
+			bracketize([]string{
+				bracketize(this.lastEntry.Fact.Meat.Terms),
+				bracketize(this.lastEntry.Fact.Meat.Kinds),
+			}),
+		})
+		this.lastEntry.Key = key
 	} else if cmd == "tvar" || cmd == "var" {
 		kind := s.Kids[0].Leaf
 		for _, vars := range s.Kids[1:] {
@@ -255,6 +266,7 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		fmt.Printf("XXXX %s %s\n", cmd, s.toString())
 	}
 	advance = i
+	s.destroy()
 	return
 }
 

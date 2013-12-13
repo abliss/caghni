@@ -241,7 +241,8 @@ func parseInterface(fn string, out chan *Entry) {
 		// TODO: one day these will be keys, not labels
 		//XXX pickup
 		e := scanner.Entry()
-		fmt.Fprintf(os.Stderr, "Axiom: %s\n", e.Fact.Skin.Name)
+		fmt.Fprintf(os.Stderr, "Axiom: %s\n%s\n%s\n",
+			e.Fact.Skin.Name, e.Key, e.Fact)
 		out <- e
 	}
 	if err := scanner.Err(); err != nil {
