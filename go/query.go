@@ -12,23 +12,6 @@ import (
 
 const DEBUG = false
 
-func scan_sexp(sexp string, off int) int {
-	depth := 0
-	for ; off < len(sexp); off++ {
-		if sexp[off] == '[' {
-			depth++
-		} else if sexp[off] == ']' {
-			//TODO: escaping? this is okay for scanning past the bone,
-			// but there may be bracket chars in the meat.
-			depth--
-		}
-		if depth == 0 {
-			return off + 1
-		}
-	}
-	return -1
-}
-
 // A JobServer facilitates concurrent graph search by providing:
 // 1. a duplicate function call suppressor, similar to singleflight.go
 // 2. memoization
@@ -231,21 +214,6 @@ func compactify(st *Entry, groundSet map[string]*Entry, depMap map[string][]*Ent
 	return out, stmts
 }
 
-func fmtProof(pf []*Entry) string {
-	msg := "==> "
-	for _, d := range pf {
-		if d == nil {
-			msg += "NIL! "
-		} else {
-			if len(d.Fact.Tree.Deps) == 0 {
-				msg += "#"
-			}
-			msg += d.Fact.Skin.Name + " "
-		}
-	}
-	return msg
-}
-
 func main() {
 	dbPath := flag.String("d", "facts.leveldb", "path to facts.leveldb")
 	imports := flag.String("i", "", "comma-separated list of .ghi imports")
@@ -413,9 +381,7 @@ func main() {
 									(newStmts == lastStmts &&
 										len(newOut) >= len(lastOut)) {
 									// not a better proof, reset
-									//XX fmt.Printf("XXXX CE %s no improvement: %s\n", name, fmtProof(t))
 									depMap[kSexp] = oldT
-
 								} else {
 									// better proof
 									lastOut = newOut
@@ -425,9 +391,6 @@ func main() {
 							}
 							if shouldSend {
 								out <- lastOut
-								if DEBUG {
-									fmt.Printf("XXXX CE %s best #%d: %s for %s\n", name, lastStmts, fmtProof(lastOut), key)
-								}
 								break
 							}
 						}
@@ -462,7 +425,11 @@ func main() {
 			}
 		}
 	}
-	newOut, newStmts := compactify(nil, groundSet, depMap)
-	fmt.Printf("Result #%d: %s\n", newStmts, fmtProof(newOut))
+	newOut, _ := compactify(nil, groundSet, depMap)
+	_, err = WriteProof(os.Stdout, newOut[1:])
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(-1)
+	}
 	os.Exit(0)
 }
