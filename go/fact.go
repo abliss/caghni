@@ -239,9 +239,18 @@ func WriteProofs(out io.Writer, list []*Entry) (n int, err error) {
 			}
 			f.Skin.DepNames[i] = newDep
 		}
+		if f.Tree.Dsig != nil {
+			write("def")
+		}
 		write("thm (")
 		write(f.Skin.Name)
 		write(" ")
+		if f.Tree.Dsig != nil {
+			write(f.Tree.Kinds[f.Tree.Dkind])
+			write(" ")
+			write(f.sexpToString(f.Tree.Dsig))
+			write(" ")
+		}
 		write(f.sexpToString(f.Bone.Free))
 		write("\n   (")
 		for i, s := range f.Bone.Hyps {
