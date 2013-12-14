@@ -426,7 +426,7 @@ func main() {
 		}
 	}
 	newOut, _ := compactify(nil, groundSet, depMap)
-	_, err = WriteProof(os.Stdout, newOut[1:])
+	_, err = WriteProofs(os.Stdout, newOut[1:])
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(-1)

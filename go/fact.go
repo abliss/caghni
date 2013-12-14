@@ -151,15 +151,53 @@ func (this *Fact) sexpToString(sexp interface{}) string {
 	}
 }
 
-func WriteProof(out io.Writer, list []*Entry) (n int, err error) {
+// Extract the vars and tvars used in this fact into the given maps.
+func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool) {
+	for ki, vs := range this.Skin.V {
+		if len(vs) == 0 {
+			continue
+		}
+		kind := this.Tree.Kinds[ki]
+		vd, ok := varDecs[kind]
+		if !ok {
+			vd = make(map[string]bool)
+			varDecs[kind] = vd
+		}
+		for _, v := range vs {
+			vd[v] = true
+		}
+	}
+	for ki, vs := range this.Skin.T {
+		if len(vs) == 0 {
+			continue
+		}
+		kind := this.Tree.Kinds[ki]
+		vd, ok := tvarDecs[kind]
+		if !ok {
+			vd = make(map[string]bool)
+			tvarDecs[kind] = vd
+		}
+		for _, v := range vs {
+			vd[v] = true
+		}
+	}
+}
+
+func WriteProofs(out io.Writer, list []*Entry) (n int, err error) {
+	// Step 1: scan through the list. Discard axioms and reverse the rest. Pull
+	// out all var names to predeclare.
 	depNames := make(map[string]string)
+	varDecs := make(map[string]map[string]bool)
+	tvarDecs := make(map[string]map[string]bool)
 	rev := make([]*Fact, len(list))
 	j := len(list) - 1
 	for _, e := range list {
+		f := e.Fact
 		kSexp := e.Key[0:scan_sexp(e.Key, 0)]
-		depNames[kSexp] = e.Fact.Skin.Name
-		if len(e.Fact.Tree.Deps) > 0 {
-			rev[j], j = &e.Fact, j-1
+		depNames[kSexp] = f.Skin.Name
+		if len(f.Tree.Deps) > 0 {
+			rev[j], j = &f, j-1
+			f.getVarNames(varDecs, tvarDecs)
 		}
 	}
 	rev = rev[j+1:]
@@ -170,6 +208,29 @@ func WriteProof(out io.Writer, list []*Entry) (n int, err error) {
 		}
 		n += nn
 	}
+	// Step 2: write var and tvar decs for each kind
+	for k, vs := range varDecs {
+		write("var (")
+		write(k)
+		write(" ")
+		for v := range vs {
+			write(v)
+			write(" ")
+		}
+		write(")\n")
+	}
+	for k, vs := range tvarDecs {
+		write("tvar (")
+		write(k)
+		write(" ")
+		for v := range vs {
+			write(v)
+			write(" ")
+		}
+		write(")\n")
+	}
+
+	// Step 3: write each of the proofs.
 	for _, f := range rev {
 		for i, d := range f.Tree.Deps {
 			newDep, ok := depNames[d]
