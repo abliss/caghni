@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strconv"
+	"strings"
 )
 
 type Fact struct {
@@ -35,6 +37,8 @@ type Fact struct {
 		Proof []interface{}
 		Dkind int
 		Dsig  []interface{}
+		Terms []string
+		Kinds []string
 	}
 }
 
@@ -101,9 +105,37 @@ func scan_sexp(sexp string, off int) int {
 // makes a ghilbert-parsable string from a parsed-json sexp
 func (this *Fact) sexpToString(sexp interface{}) string {
 	if s, ok := sexp.(string); ok {
-		return s
+		fields := strings.Split(s, ".")
+		if len(fields) != 2 {
+			panic("Bad var string fields " + s)
+		}
+		num, err := strconv.Atoi(fields[1])
+		if err != nil {
+			panic("Bad num " + s)
+		}
+		switch fields[0] {
+		case "Deps":
+			return this.Skin.DepNames[num]
+		case "Hyps":
+			return this.Skin.HypNames[num]
+		default: // TN or VN
+			var names [][]string
+			switch fields[0][0] {
+			case 'T':
+				names = this.Skin.T
+			case 'V':
+				names = this.Skin.V
+			default:
+				panic("Bad var string " + s)
+			}
+			kindNum, err := strconv.Atoi(fields[0][1:])
+			if err != nil {
+				panic("Bad var kind num " + s)
+			}
+			return names[kindNum][num]
+		}
 	} else if s, ok := sexp.(float64); ok {
-		return fmt.Sprintf("%d", int(s))
+		return this.Tree.Terms[int(s)]
 	} else {
 		v := reflect.ValueOf(sexp)
 		l := v.Len()
@@ -120,14 +152,10 @@ func (this *Fact) sexpToString(sexp interface{}) string {
 }
 
 func WriteProof(out io.Writer, list []*Entry) (n int, err error) {
-	lookup := make(map[string]*Entry)
-	rev := make([]*Fact, 0, len(list))
+	depNames := make(map[string]string)
 	for _, e := range list {
 		kSexp := e.Key[0:scan_sexp(e.Key, 0)]
-		lookup[kSexp] = e
-		if len(e.Fact.Tree.Deps) > 0 {
-			rev = append(rev, &e.Fact)
-		}
+		depNames[kSexp] = e.Fact.Skin.Name
 	}
 	write := func(s string) {
 		nn, err := io.WriteString(out, s)
@@ -136,17 +164,30 @@ func WriteProof(out io.Writer, list []*Entry) (n int, err error) {
 		}
 		n += nn
 	}
-	for _, f := range rev {
+	for _, e := range list {
+		f := e.Fact
+		if len(f.Tree.Deps) == 0 {
+			continue
+		}
 		write("thm (")
 		write(f.Skin.Name)
 		write(" ")
 		write(f.sexpToString(f.Bone.Free))
-		write("\n   ")
-		write(f.sexpToString(f.Bone.Hyps))
-		write("\n   ")
+		write("\n   (")
+		for i, s := range f.Bone.Hyps {
+			write(f.Skin.HypNames[i])
+			write(" ")
+			write(f.sexpToString(s))
+			write("\n   ")
+		}
+		write(")\n   ")
 		write(f.sexpToString(f.Bone.Stmt))
 		write("\n")
-		write("#TODO\n)\n")
+		for _, s := range f.Tree.Proof {
+			write(f.sexpToString(s))
+			write("  ")
+		}
+		write("\n)\n\n")
 	}
 	return
 }
