@@ -153,10 +153,16 @@ func (this *Fact) sexpToString(sexp interface{}) string {
 
 func WriteProof(out io.Writer, list []*Entry) (n int, err error) {
 	depNames := make(map[string]string)
+	rev := make([]*Fact, len(list))
+	j := len(list) - 1
 	for _, e := range list {
 		kSexp := e.Key[0:scan_sexp(e.Key, 0)]
 		depNames[kSexp] = e.Fact.Skin.Name
+		if len(e.Fact.Tree.Deps) > 0 {
+			rev[j], j = &e.Fact, j-1
+		}
 	}
+	rev = rev[j+1:]
 	write := func(s string) {
 		nn, err := io.WriteString(out, s)
 		if err != nil {
@@ -164,10 +170,13 @@ func WriteProof(out io.Writer, list []*Entry) (n int, err error) {
 		}
 		n += nn
 	}
-	for _, e := range list {
-		f := e.Fact
-		if len(f.Tree.Deps) == 0 {
-			continue
+	for _, f := range rev {
+		for i, d := range f.Tree.Deps {
+			newDep, ok := depNames[d]
+			if !ok {
+				panic("Can't find dep for " + d)
+			}
+			f.Skin.DepNames[i] = newDep
 		}
 		write("thm (")
 		write(f.Skin.Name)
