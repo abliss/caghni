@@ -5,7 +5,7 @@ caghni
 
 Content-Addressable GHilbert Namespace and Index
 
-The names for theorems in set.mm are too short to be understood by more than a handful of people. The names for theorems in wikiproofs are too long to be remembered, typed, or standardized upon. Furthermore, every corpus has its own way to represent operators (e.g. $->$ or &rarr;) and different decisions about definitions (e.g. whether to define &harr; in terms of &and; or vice-versa). If I prove a theorem in set.mm and you prove a theorem in wikiproofs, even if they say exactly the same thing and are proved exactly the same way, they will never be part of the same body of interchangeable proofs. 
+The names for theorems in set.mm are too short to be understood by more than a handful of people. The names for theorems in wikiproofs are too long to be remembered, typed, or standardized upon. Furthermore, every corpus has its own way to represent operators (e.g. `->` or &rarr;) and different decisions about definitions (e.g. whether to define &harr; in terms of &and; or vice-versa). If I prove a theorem in set.mm and you prove a theorem in wikiproofs, even if they say exactly the same thing and are proved exactly the same way, they will never be part of the same body of interchangeable proofs. 
 
 The Ghilbert interface format solves part of the problem, but in an attempt to remain human-readable, has given up solving the hardest part: naming things.
 
@@ -40,7 +40,7 @@ This compiles all `.gh` files into a database,`out/facts.leveldb`. It's slow, bu
 
 This creates a file `out.gh` which starts by importing `prop-nic.ghi` and ends by exporting `prop_luk.ghi`. You can move from any of `prop_{nic,luk,mer,min}.ghi` to any other in this way. (If you did this by storing proofs in `.gh` files, some utility theorems would need to be proved ~12 times! In a caghni database we only need one copy of each.)
 
-Only theorems which are necessary for the verification will be output. There are many possible way to achieve this. For example, a theorem which depends on the assertion `(-> ph ph)` might use either `id` or `id1` in its proof (regardless of which was used when the proof was originally written). In general, choosing which theorems to include is an NP-complete problem. The current code guarantees only that if there is a solution, it will eventually be found; and if there is not, the program will crash. In the future, we hope to improve the quality of the solutions.
+Only theorems which are necessary for the verification will be output. There are many possible way to achieve this. For example, a theorem which depends on the assertion `(-> ph ph)` might use either `id` or `id1` in its proof (regardless of which was used when the proof was originally written). In general, choosing which theorems to include is an NP-complete problem. The current code guarantees only that if there are any solutions, one will eventually be found; and if there are not, the program will crash. In the future, we hope to improve the quality of the solutions.
 
 The go program is pretty fast; it is also concurrent, so setting `$GOMAXPROCS` to, say, 4 or so, will likely make it even faster if your machine has many CPU cores.
 
