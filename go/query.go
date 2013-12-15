@@ -23,7 +23,6 @@ func parseInterface(fn string, out chan *Entry) {
 	for scanner.Scan() {
 		_ = scanner.Text()
 		// TODO: one day these will be keys, not labels
-		//XXX pickup
 		e := scanner.Entry()
 		if DEBUG {
 			fmt.Fprintf(os.Stderr, "Axiom: %s\n%s\n%s\n",
@@ -99,8 +98,10 @@ func main() {
 		os.Exit(-1)
 	}
 	defer db.Close()
-	groundSet := parseInterfaces(strings.Split(*imports, ","))
-	targets := parseInterfaces(strings.Split(*exports, ","))
+	importList := strings.Split(*imports, ",")
+	exportList := strings.Split(*exports, ",")
+	groundSet := parseInterfaces(importList)
+	targets := parseInterfaces(exportList)
 	var resolver, closer JobServer
 	resolver.name = "Resolver"
 	// The resolver expects a prefix of a key, and always returns an array of
@@ -165,7 +166,7 @@ func main() {
 	// setting entry[0].IsDone to true.
 	go closer.Run(func(jobid, key string, out chan []*Entry) {
 		if DEBUG {
-			fmt.Printf("XXXX Closing string %s\n", key)
+			fmt.Fprintf(os.Stderr, "DEBUG: Closing string %s\n", key)
 		}
 		// there can be only one resloution.
 		ch := make(chan []*Entry, 2000)
@@ -174,14 +175,14 @@ func main() {
 		name := fmt.Sprintf("%s/%d", target.Fact.Skin.Name,
 			len(target.Fact.Tree.Deps))
 		<-ch // clear out the sentinel
-		//XX fmt.Printf("XXXX Closing string %s==%s\n", key, name)
 		if DEBUG {
-			fmt.Printf("XXXX CE %s begin for %s:%s!\n", name, jobid, key)
+			fmt.Fprintf(os.Stderr, "DEBUG: CE %s begin for %s:%s!\n",
+				name, jobid, key)
 		}
 		numDeps := len(target.Fact.Tree.Deps)
 		if numDeps == 0 {
 			if DEBUG {
-				fmt.Printf("XXXX CE %s as stmt\n", name)
+				fmt.Fprintf(os.Stderr, "DEBUG CE %s as stmt\n", name)
 			}
 			// stmt has only one closure
 			packet := make([]*Entry, 1)
@@ -197,7 +198,6 @@ func main() {
 			var lastOut []*Entry
 			var lastStmts int
 			for _, dep := range target.Fact.Tree.Deps {
-				//XX fmt.Printf("XXXX CE %s, requesting resolve %s\n", name, dep)
 				resolver.Job(jobid, dep, resolveChan)
 				rJobs++
 			}
@@ -206,15 +206,13 @@ func main() {
 				case r := <-resolveChan:
 					if r[0].IsDone {
 						rJobs--
-						//XX fmt.Printf("XXXX CE %s, requesting resolve %s complete, need %d/%d\n", name, r[0].Key, rJobs, len(cJobs))
 					} else {
 						if cJobs[r[1].Key] {
-							if DEBUG {
-								fmt.Printf("XXXX CE %s, requesting close %s as %s, already subscribed\n", name, r[1].Key, r[1].Fact.Skin.Name)
-							}
 						} else {
 							if DEBUG {
-								fmt.Printf("XXXX CE %s, requesting close %s as %s\n", name, r[1].Key, r[1].Fact.Skin.Name)
+								fmt.Fprintf(os.Stderr,
+									"DEBUG: CE %s, close %s as %s\n",
+									name, r[1].Key, r[1].Fact.Skin.Name)
 							}
 							cJobs[r[1].Key] = true
 							closer.Job(jobid, r[1].Key, tailChan)
@@ -225,7 +223,9 @@ func main() {
 					if t[0].IsDone {
 						delete(cJobs, t[0].Key)
 						if DEBUG {
-							fmt.Printf("XXXX CE %s, requesting close %s complete, need %d/%d\n", name, t[0].Key, rJobs, len(cJobs))
+							fmt.Fprintf(os.Stderr,
+								"DEBUG: CE %s, close %s complete, need %d/%d\n",
+								name, t[0].Key, rJobs, len(cJobs))
 						}
 					} else {
 						key := t[0].Key
@@ -237,7 +237,8 @@ func main() {
 						}
 						if numDeps > 0 {
 							if DEBUG {
-								fmt.Printf("XXXX CE %s need %d\n", name, numDeps)
+								fmt.Fprintf(os.Stderr,
+									"DEBUG: CE %s, need %d\n", name, numDeps)
 							}
 						} else {
 							shouldSend := false
@@ -270,7 +271,9 @@ func main() {
 				}
 			}
 		}
-		//XX fmt.Printf("XXXX CE %s, z all done.\n", name)
+		if DEBUG {
+			fmt.Fprintf(os.Stderr, "DEBUG: CE %s, ! all done.\n", name)
+		}
 		sentinel := make([]*Entry, 1)
 		sentinel[0] = new(Entry)
 		sentinel[0].Key = key
@@ -289,7 +292,6 @@ func main() {
 	for jobs > 0 {
 		res := <-out
 		if !res[0].IsDone {
-			//XX fmt.Printf("Result len %d for %s\n", len(res), res[0].Key)
 			if depMap[res[0].Key] == nil {
 				depMap[res[0].Key] = res[1:]
 				jobs--
@@ -297,10 +299,19 @@ func main() {
 		}
 	}
 	newOut, _ := compactify(nil, groundSet, depMap)
-	_, err = WriteProofs(os.Stdout, newOut[1:])
+
+	for _, imp := range importList {
+		fmt.Printf("import (%s %s () \"\")\n", imp, imp)
+	}
+	_, err = WriteProofs(os.Stdout, newOut[1:], targets)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(-1)
 	}
+
+	for _, exp := range exportList {
+		fmt.Printf("export (%s %s () \"\")\n", exp, exp)
+	}
+
 	os.Exit(0)
 }

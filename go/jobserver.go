@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"runtime"
 )
 
@@ -51,9 +50,6 @@ func (this *JobServer) Run(jobber Jobber) {
 		select {
 		case req := <-this.reqs:
 			key := req.Target
-			if DEBUG {
-				fmt.Printf("XXXX Request for %s: %s: %v\n", req.Parent, key, req.Out)
-			}
 			if last, ok := this.last[key]; ok {
 				req.Out <- last
 			}
@@ -62,7 +58,6 @@ func (this *JobServer) Run(jobber Jobber) {
 			} else {
 				listeners, ok := this.listeners[key]
 				if !ok {
-					//fmt.Printf("XXXX Jobber %s: no listeners for key %s, jobbing\n", this.name, key)
 					listeners = make(map[string]chan []*Entry)
 					go this.jobber(req.Target, req.Target, this.results)
 				}
@@ -70,35 +65,33 @@ func (this *JobServer) Run(jobber Jobber) {
 				this.listeners[key] = listeners
 				// check for cycles
 				/*
-					if this.name == "Closer" { //XXX
-						fmt.Printf("XXXX Jobber %s: %s waiting on %s\n", this.name, req.Parent, key)
-					}
-					work := make([]string, 1)
-					work[0] = req.Parent
-					var d string
-					msg := "Cycle:\n"
-					for len(work) > 0 {
-						d, work = work[0], work[1:]
-						msg += d + "\n"
-						for k := range this.listeners[d] {
-							if _, ok = listeners[k]; !ok {
-								listeners[k] = nil
-								work = append(work, k)
-								if k == key {
-									fmt.Printf("XXXX Jobber %s: %s cycled: %s\n",
-										this.name, key, msg)
-									//TODO: pick less arbitrary target to kill
-									sentinel := make([]*Entry, 1)
-									sentinel[0] = new(Entry)
-									sentinel[0].Key = key
-									sentinel[0].IsDone = true
-									this.results <- sentinel
-									work = nil
-									break
-								}
-							}
-						}
-					}
+										work := make([]string, 1)
+										work[0] = req.Parent
+										var d string
+										msg := "Cycle:\n"
+										for len(work) > 0 {
+											d, work = work[0], work[1:]
+											msg += d + "\n"
+											for k := range this.listeners[d] {
+												if _, ok = listeners[k]; !ok {
+													listeners[k] = nil
+													work = append(work, k)
+													if k == key {
+														fmt.Fprintf(os.Stderr,
+					                                        "DEBUG: Jobber %s: %s cycled: %s\n",
+															this.name, key, msg)
+														//TODO: pick less arbitrary target to kill
+														sentinel := make([]*Entry, 1)
+														sentinel[0] = new(Entry)
+														sentinel[0].Key = key
+														sentinel[0].IsDone = true
+														this.results <- sentinel
+														work = nil
+														break
+													}
+												}
+											}
+										}
 				*/
 			}
 		case res := <-this.results:

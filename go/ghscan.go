@@ -255,15 +255,11 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 			} else {
 				this.varKinds[varName] = kind
 			}
-			//XX fmt.Printf("XXXX %s %s = %s\n", cmd, varName, kind)
 		}
 		token = make([]byte, 0)
 	} else {
 		// other commands (kind, term) we skip.
 		token = make([]byte, 0)
-	}
-	if false {
-		fmt.Printf("XXXX %s %s\n", cmd, s.toString())
 	}
 	advance = i
 	s.destroy()

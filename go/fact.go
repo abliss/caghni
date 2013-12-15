@@ -42,6 +42,7 @@ type Fact struct {
 	}
 }
 
+// TODO: terrible ugly hack that this is used all over.
 type Entry struct {
 	Key    string
 	Fact   Fact
@@ -183,9 +184,10 @@ func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool) {
 	}
 }
 
-func WriteProofs(out io.Writer, list []*Entry) (n int, err error) {
+func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry) (
+	n int, err error) {
 	// Step 1: scan through the list. Discard axioms and reverse the rest. Pull
-	// out all var names to predeclare.
+	// out all var names to predeclare. Rename exports to match interface.
 	depNames := make(map[string]string)
 	varDecs := make(map[string]map[string]bool)
 	tvarDecs := make(map[string]map[string]bool)
@@ -194,6 +196,9 @@ func WriteProofs(out io.Writer, list []*Entry) (n int, err error) {
 	for _, e := range list {
 		f := e.Fact
 		kSexp := e.Key[0:scan_sexp(e.Key, 0)]
+		if exp, ok := exports[kSexp]; ok {
+			f.Skin.Name = exp.Fact.Skin.Name
+		}
 		depNames[kSexp] = f.Skin.Name
 		if len(f.Tree.Deps) > 0 {
 			rev[j], j = &f, j-1
@@ -208,6 +213,7 @@ func WriteProofs(out io.Writer, list []*Entry) (n int, err error) {
 		}
 		n += nn
 	}
+
 	// Step 2: write var and tvar decs for each kind
 	for k, vs := range varDecs {
 		write("var (")
