@@ -1,0 +1,103 @@
+# Some theorems and definitions of propositional logic
+
+import (PROP_NIC prop_nic.ghi () "")
+# stmt (nic-mp () (ph (-/\ ph (-/\ ch ps))) ps)
+# stmt (nic-ax () () (-/\ (-/\ ph (-/\ ch ps)) (-/\ (-/\ ta (-/\ ta ta)) (-/\ (-/\ th ch) (-/\ (-/\ ph th) (-/\ ph th))))))
+
+
+tvar (wff ph ps ch th ta et ze si)
+
+#  Inference for [[nic-mp]] using [[nic-ax]] as major premise.  (Contributed
+#         by Jeff Hoffman, 17-Nov-2007.)  
+thm (nic-imp () (nic-imp.1 (-/\ ph (-/\ ch ps))) (-/\ (-/\ th ch) (-/\ (-/\ ph th) (-/\ ph th))) nic-imp.1 ph ch ps ta th nic-ax nic-mp)
+
+#  Lemma for [[nic-id]]. 
+thm (nic-idlem1 () () (-/\ (-/\ th (-/\ ta (-/\ ta ta))) (-/\ (-/\ (-/\ ph (-/\ ch ps)) th) (-/\ (-/\ ph (-/\ ch ps)) th))) ph ch ps ta ph nic-ax th nic-imp)
+
+#  Lemma for [[nic-id]].  Inference used by [[nic-id]]. 
+thm (nic-idlem2 () (nic-idlem2.1 (-/\ et (-/\ (-/\ ph (-/\ ch ps)) th))) (-/\ (-/\ th (-/\ ta (-/\ ta ta))) et) nic-idlem2.1 ph ch ps ta ph nic-ax th nic-imp et nic-imp nic-mp)
+
+#  Theorem [[id]] expressed with {{{-/\}}}.  (Contributed by Jeff Hoffman,
+#      17-Nov-2007.) 
+thm (nic-id () () (-/\ ta (-/\ ta ta)) ps ps ps th ph nic-ax ch nic-idlem2 (-/\ ch (-/\ ch ch)) ta (-/\ ph ps) (-/\ ps ph) (-/\ ps ph) nic-idlem1 ps nic-idlem2 nic-mp)
+
+#  {{{-/\}}} is symmetric.  (Contributed by Jeff Hoffman, 17-Nov-2007.)  
+thm (nic-swap () () (-/\ (-/\ th ph) (-/\ (-/\ ph th) (-/\ ph th))) ph nic-id ph ph ph ta th nic-ax nic-mp)
+
+#  Inference version of [[nic-swap]].  (Contributed by Jeff Hoffman,
+#        17-Nov-2007.) 
+thm (nic-isw1 () (nic-isw1.1 (-/\ th ph)) (-/\ ph th) nic-isw1.1 th ph nic-swap nic-mp)
+
+#  Inference for swapping nested terms.  (Contributed by Jeff Hoffman,
+#        17-Nov-2007.) 
+thm (nic-isw2 () (nic-isw2.1 (-/\ ps (-/\ th ph))) (-/\ ps (-/\ ph th)) nic-isw2.1 ph th nic-swap ps nic-imp nic-mp nic-isw1)
+
+#  Inference version of [[nic-imp]] using right-handed term.  (Contributed
+#        by Jeff Hoffman, 17-Nov-2007.) 
+thm (nic-iimp1 () (nic-iimp1.1 (-/\ ph (-/\ ch ps)) nic-iimp1.2 (-/\ th ch)) (-/\ th ph) nic-iimp1.2 nic-iimp1.1 th nic-imp nic-mp nic-isw1)
+
+#  Inference version of [[nic-imp]] using left-handed term.  (Contributed
+#        by Jeff Hoffman, 17-Nov-2007.) 
+thm (nic-iimp2 () (nic-iimp2.1 (-/\ (-/\ ph ps) (-/\ ch ch)) nic-iimp2.2 (-/\ th ph)) (-/\ th (-/\ ch ch)) nic-iimp2.1 nic-isw1 nic-iimp2.2 nic-iimp1)
+
+#  Inference to remove the trailing term.  (Contributed by Jeff Hoffman,
+#        17-Nov-2007.) 
+thm (nic-idel () (nic-idel.1 (-/\ ph (-/\ ch ps))) (-/\ ph (-/\ ch ch)) ch nic-id nic-isw1 nic-idel.1 (-/\ ch ch) nic-imp nic-mp)
+
+#  Chained inference.  (Contributed by Jeff Hoffman, 17-Nov-2007.) 
+thm (nic-ich () (nic-ich.1 (-/\ ph (-/\ ps ps)) nic-ich.2 (-/\ ps (-/\ ch ch))) (-/\ ph (-/\ ch ch)) nic-ich.2 nic-isw1 nic-ich.1 (-/\ ch ch) nic-imp nic-mp)
+
+#  Double the terms.  Since doubling is the same as negation,
+#        this can be viewed as a contraposition Inference.  (Contributed
+#        by Jeff Hoffman, 17-Nov-2007.) 
+thm (nic-idbl () (nic-idbl.1 (-/\ ph (-/\ ps ps))) (-/\ (-/\ ps ps) (-/\ (-/\ ph ph) (-/\ ph ph))) nic-idbl.1 ps nic-imp nic-idbl.1 ph nic-imp nic-ich)
+
+#  For nic-* definitions, the biconditional connective is not used.  Instead,
+#      definitions are made based on this form.  [[nic-bi1]] and [[nic-bi2]] are
+#      used to convert the definitions into usable theorems about one side of the
+#      implication.  (Contributed by Jeff Hoffman, 18-Nov-2007.)  
+thm (nic-bijust () () (-/\ (-/\ ta ta) (-/\ (-/\ ta ta) (-/\ ta ta))) (-/\ ta ta) nic-id)
+
+#  Inference to extract one side of an implication from a definition 
+thm (nic-bi1 () (nic-bi1.1 (-/\ (-/\ ph ps) (-/\ (-/\ ph ph) (-/\ ps ps)))) (-/\ ph (-/\ ps ps)) nic-bi1.1 ph nic-id nic-iimp1 nic-isw2 nic-idel)
+
+#  Inference to extract the other side of an implication from a
+#         'biconditional' definition. 
+thm (nic-bi2 () (nic-bi2.1 (-/\ (-/\ ph ps) (-/\ (-/\ ph ph) (-/\ ps ps)))) (-/\ ps (-/\ ph ph)) nic-bi2.1 nic-isw2 ps nic-id nic-iimp1 nic-idel)
+
+
+defthm (def-im wff (-> ph ps) () () 
+       (-/\ (-/\ (-/\ ph (-/\ ps ps)) (-> ph ps)) (-/\ (-/\ (-/\ ph (-/\ ps ps)) (-/\ ph (-/\ ps ps))) (-/\ (-> ph ps) (-> ph ps))))
+        (-/\ ph (-/\ ps ps)) nic-bijust
+        )   
+
+#  Define negation in terms of 'nand'.  Analogous to
+#      #(<-> (-/\ ph ph) (-. ph))#.  In a pure (standalone) treatment of
+#      Nicod's axiom, this theorem would be changed to a definition ($a
+#      statement). 
+defthm (def-neg wff (-. ph) () ()
+        (-/\ (-/\ (-/\ ph ph) (-. ph)) (-/\ (-/\ (-/\ ph ph) (-/\ ph ph)) (-/\ (-. ph) (-. ph))))
+        (-/\ ph ph)  nic-bijust)
+
+
+
+
+#  Derive the standard modus ponens from [[nic-mp]].  (Contributed by Jeff
+#        Hoffman, 18-Nov-2007.) 
+thm (nic-stdmp () (nic-smin ph nic-smaj (-> ph ps)) ps nic-smin nic-smaj ph ps def-im nic-bi2 nic-mp nic-mp)
+
+#  Proof of [[luk-1]] from [[nic-ax]] and [[nic-mp]] (and definitions
+#      [[nic-dfim]] and [[nic-dfneg]]).  Note that the standard axioms [[ax-1]],
+#      [[ax-2]], and [[ax-3]] are proved from the Lukasiewicz axioms by theorems
+#      [[ax1]], [[ax2]], and [[ax3]].  (Contributed by Jeff Hoffman,
+#      18-Nov-2007.) 
+thm (nic-luk1 () () (-> (-> ph ps) (-> (-> ps ch) (-> ph ch))) ph ps def-im nic-bi2 ph ps ps ta (-/\ ch ch) nic-ax nic-isw2 nic-idel ph ch def-im nic-bi1 nic-idbl (-/\ (-/\ ch ch) ps) nic-imp ps ch def-im nic-bi2 ps (-/\ ch ch) nic-swap nic-ich (-/\ (-> ph ch) (-> ph ch)) nic-imp nic-ich nic-ich (-> ps ch) (-> ph ch) def-im nic-bi1 nic-ich nic-ich (-> ph ps) (-> (-> ps ch) (-> ph ch)) def-im nic-bi1 nic-mp)
+
+#  Proof of [[luk-2]] from [[nic-ax]] and [[nic-mp]].  (Contributed by Jeff
+#      Hoffman, 18-Nov-2007.) 
+thm (nic-luk2 () () (-> (-> (-. ph) ph) ph) (-. ph) ph def-im nic-bi2 ph def-neg (-/\ ph ph) nic-id nic-iimp1 nic-isw2 nic-iimp1 nic-isw1 (-> (-. ph) ph) ph def-im nic-bi1 nic-mp)
+
+#  Proof of [[luk-3]] from [[nic-ax]] and [[nic-mp]].  (Contributed by Jeff
+#      Hoffman, 18-Nov-2007.) 
+thm (nic-luk3 () () (-> ph (-> (-. ph) ps)) (-. ph) ps def-im nic-bi1 ph def-neg nic-bi2 ph nic-id nic-iimp1 nic-iimp2 ph (-> (-. ph) ps) def-im nic-bi1 nic-mp)
+
