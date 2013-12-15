@@ -6,137 +6,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"os"
-	"runtime"
 	"strings"
 )
 
 const DEBUG = false
-
-// A JobServer facilitates concurrent graph search by providing:
-// 1. a duplicate function call suppressor, similar to singleflight.go
-// 2. memoization
-// 3. output channel fanout
-// 4. deadlock detection
-//
-// Each JobServer has a Jobber, which performs the actual search. The Jobber is
-// a function with the following contract:
-// 1. input is a string argument; output is successive Entry Slices
-// 2. On each output slice, entry[0].Key must exactly match the input arg
-// 3. Each successive output should be an "improvement" on the previous one.
-// 4. When no more outputs are coming, send a sentry with entry[0].IsDone set.
-// 5. The output channel must not be closed.
-// 6. Must be threadsafe.
-// 7. Whenever calling back in to a JobServer, must pass its jobid.
-//
-// TODO: currently cannot detect deadlocks spread between multiple servers. an
-// external lockserver may be required for that.
-type JobRequest struct {
-	Parent string
-	Target string
-	Out    chan []*Entry
-}
-type JobServer struct {
-	reqs      chan JobRequest
-	results   chan []*Entry
-	listeners map[string]map[string]chan []*Entry
-	last      map[string][]*Entry
-	done      map[string][]*Entry
-	Jobber    func(jobid, key string, job chan []*Entry)
-	name      string
-}
-
-func (this *JobServer) Run() {
-	this.reqs = make(chan JobRequest, 2000)
-	this.results = make(chan []*Entry, 2000)
-	this.last = make(map[string][]*Entry)
-	this.done = make(map[string][]*Entry)
-	this.listeners = make(map[string]map[string]chan []*Entry)
-	for {
-		select {
-		case req := <-this.reqs:
-			key := req.Target
-			if DEBUG {
-				fmt.Printf("XXXX Request for %s: %s: %v\n", req.Parent, key, req.Out)
-			}
-			if last, ok := this.last[key]; ok {
-				req.Out <- last
-			}
-			if sentinel, ok := this.done[key]; ok {
-				req.Out <- sentinel
-			} else {
-				listeners, ok := this.listeners[key]
-				if !ok {
-					//fmt.Printf("XXXX Jobber %s: no listeners for key %s, jobbing\n", this.name, key)
-					listeners = make(map[string]chan []*Entry)
-					go this.Jobber(req.Target, req.Target, this.results)
-				}
-				listeners[req.Parent] = req.Out
-				this.listeners[key] = listeners
-				// check for cycles
-				/*
-					if this.name == "Closer" { //XXX
-						fmt.Printf("XXXX Jobber %s: %s waiting on %s\n", this.name, req.Parent, key)
-					}
-					work := make([]string, 1)
-					work[0] = req.Parent
-					var d string
-					msg := "Cycle:\n"
-					for len(work) > 0 {
-						d, work = work[0], work[1:]
-						msg += d + "\n"
-						for k := range this.listeners[d] {
-							if _, ok = listeners[k]; !ok {
-								listeners[k] = nil
-								work = append(work, k)
-								if k == key {
-									fmt.Printf("XXXX Jobber %s: %s cycled: %s\n",
-										this.name, key, msg)
-									//TODO: pick less arbitrary target to kill
-									sentinel := make([]*Entry, 1)
-									sentinel[0] = new(Entry)
-									sentinel[0].Key = key
-									sentinel[0].IsDone = true
-									this.results <- sentinel
-									work = nil
-									break
-								}
-							}
-						}
-					}
-				*/
-			}
-		case res := <-this.results:
-			key := res[0].Key
-			if _, ok := this.done[key]; !ok {
-				for _, listenerChan := range this.listeners[key] {
-					if listenerChan != nil {
-						listenerChan <- res
-					}
-				}
-				if res[0].IsDone {
-					this.done[key] = res
-					delete(this.listeners, key)
-				} else {
-					this.last[key] = res
-				}
-			}
-		}
-	}
-}
-
-// Safe to call from anywhere
-func (this *JobServer) Job(jobid, target string, out chan []*Entry) {
-	jobReq := JobRequest{jobid, target, out}
-	// for/select in case Run() hasn't been called yet
-	for {
-		select {
-		case this.reqs <- jobReq:
-			return
-		default:
-			runtime.Gosched()
-		}
-	}
-}
 
 // Parses a ghi and emits the label of each stmt on out, followed by an empty
 // sentinel.
@@ -237,7 +110,7 @@ func main() {
 	// closed. When no more results are available, we send the sentinel which
 	// has entry[0].IsDone set.
 	// Currently, we only ever send one hit.
-	resolver.Jobber = func(jobid, target string, out chan []*Entry) {
+	go resolver.Run(func(jobid, target string, out chan []*Entry) {
 		sendHit := func(hit *Entry) {
 			myOut := make([]*Entry, 2)
 			myOut[0] = new(Entry)
@@ -281,8 +154,7 @@ func main() {
 		sentinel[0].Key = target
 		sentinel[0].IsDone = true
 		out <- sentinel
-	}
-	go resolver.Run()
+	})
 
 	closer.name = "Closer"
 	// The Closer expects an exact key, and outputs lists of entries such that:
@@ -291,7 +163,7 @@ func main() {
 	// in the list
 	// When no further closures exist, a sentinel will cap the stream by
 	// setting entry[0].IsDone to true.
-	closer.Jobber = func(jobid, key string, out chan []*Entry) {
+	go closer.Run(func(jobid, key string, out chan []*Entry) {
 		if DEBUG {
 			fmt.Printf("XXXX Closing string %s\n", key)
 		}
@@ -404,8 +276,7 @@ func main() {
 		sentinel[0].Key = key
 		sentinel[0].IsDone = true
 		out <- sentinel
-	}
-	go closer.Run()
+	})
 
 	out := make(chan []*Entry, len(targets))
 	jobs := 0
