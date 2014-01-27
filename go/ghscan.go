@@ -221,7 +221,8 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		return false
 	})
 
-	if cmd == "stmt" {
+	switch cmd {
+	case "stmt":
 		// Emit the token as flat text. Access to the parsed fact is through
 		// Entry()
 		token = data[cmdStart:i]
@@ -246,7 +247,7 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 			}),
 		})
 		this.lastEntry.Key = key
-	} else if cmd == "tvar" || cmd == "var" {
+	case "tvar", "var":
 		kind := s.Kids[0].Leaf
 		for _, vars := range s.Kids[1:] {
 			varName := vars.Leaf
@@ -257,7 +258,9 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 			}
 		}
 		token = make([]byte, 0)
-	} else {
+	case "param":
+		//PICKUP : how to handle?
+	default:
 		// other commands (kind, term) we skip.
 		token = make([]byte, 0)
 	}
