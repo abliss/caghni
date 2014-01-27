@@ -1418,7 +1418,7 @@ thm (eqeq1d ()
   (hyp (-> ph (= A B)))
   (-> ph (<-> (= A C) (= B C)))
   hyp A B C eqeq1 syl)
-	
+    
 ## <title> Equivalence over Equality </title>
 ## <table>
 ##   (=        [ A  ] [      [ B)
@@ -1428,7 +1428,7 @@ thm (eqeq2i ()
   (hyp (= A B))
   (<-> (= C A) (= C B))
   hyp A B C eqeq2 ax-mp)
-	
+    
 ## <title> Equivalence over Equality </title>
 ## <table>
 ##   (-> ph (=        [ A  ] [      [ B))
@@ -2190,7 +2190,7 @@ thm (addeq12d ()
 ## <table>
 ##  (=    A  ] [    B)
 ##  (= (S A) ] [ (S B)
-## </table>	
+## </table> 
 thm (pa_ax2i () (hyp (= A B)) (= (S A) (S B))
   hyp
   A B pa_ax2
@@ -2756,7 +2756,7 @@ thm (mulid () () (= (* A (1)) A)
     EqReplaceEq0Mul1
   ## </d>
 )
-	
+    
 ## <title> Multiplicative Identity </title>
 ## <suggest> auto-right('Simplify', '1') </suggest>
 thm (mulidr() () (= (* (1) A) A)
@@ -7630,6 +7630,10 @@ thm (emptyInterval () (hyp (-. (<= A B))) (=_ ({...} A B) ({/}))
 #!
 
 # == Ordered pair ==
+
+defthm (df-op nat (<,> A B) () ()
+  (= (<,> A B) (+ (* (+ A B) (+ A B)) B))
+  (+ (* (+ A B) (+ A B)) B) eqid)
 
 # number 1.0
 thm (opth1 () ()
@@ -18551,7 +18555,7 @@ thm (tail-sum-step () () (= (tail (recurse (sum-step S) (+ B (1)) (<,> A C))) (+
 # Sum a sequence of numbers from a function. Capital Sigma.
 ## <suggest> right('Define', 'Σ') left('Simplify', 'Σ') </suggest>
 defthm (df-sum nat (sum A B S) () () (= (sum A B S) (tail (recurse (sum-step S) (.- (+ B (1)) A) (<,> A (0)))))
-		(tail (recurse (sum-step S) (.- (+ B (1)) A) (<,> A (0)))) eqid
+        (tail (recurse (sum-step S) (.- (+ B (1)) A) (<,> A (0)))) eqid
 )
 
 defthm (df-applyset set ({.|} S T) ((S y) (T y) (S z) (T z)) () (=_ ({.|} S T) ({|} y (E. z (/\ (= y (apply S z)) (e. z T)))))
@@ -19448,7 +19452,7 @@ thm (tail-product-step () () (= (tail (recurse (product-step S) (+ B (1)) (<,> A
 # Multiply a sequence of numbers from a function. Capital Pi.
 ## <suggest> right('Define', 'Π') left('Simplify', 'Π') </suggest>
 defthm (df-product nat (product A B S) () () (= (product A B S) (tail (recurse (product-step S) (.-  (+ B (1)) A) (<,> A (1)))))
-		(tail (recurse (product-step S) (.-  (+ B (1)) A) (<,> A (1)))) eqid
+        (tail (recurse (product-step S) (.-  (+ B (1)) A) (<,> A (1)))) eqid
 )
 
 ## <title> Equivalence for product </title> ##

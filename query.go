@@ -61,7 +61,8 @@ func parseInterfaces(interfaces []string) map[string]*Entry {
 // Given a depmap of entries, return a compact prooflist with duplicates removed
 // (each duplicated entry only keeps the last copy); also returns the number of
 // ungrounded stmts in the output. The given entry st will be prepended.
-func compactify(st *Entry, groundSet map[string]*Entry, depMap map[string][]*Entry) (out []*Entry, stmts int) {
+func compactify(st *Entry, groundSet map[string]*Entry,
+	depMap map[string][]*Entry) (out []*Entry, stmts int) {
 	stmts = 0
 	out = make([]*Entry, 0)
 	seen := make(map[string]bool)
@@ -103,7 +104,7 @@ func main() {
 	groundSet := parseInterfaces(importList)
 	targets := parseInterfaces(exportList)
 	var resolver, closer JobServer
-	resolver.name = "Resolver"
+	resolver.Name = "Resolver"
 	// The resolver expects a prefix of a key, and always returns an array of
 	// two entries. the first one is a dummy so that its key can match the
 	// (sometimes incomplete) target string. The second will be an actual entry,
@@ -157,7 +158,7 @@ func main() {
 		out <- sentinel
 	})
 
-	closer.name = "Closer"
+	closer.Name = "Closer"
 	// The Closer expects an exact key, and outputs lists of entries such that:
 	// 1. the first entry has a key matching the given key
 	// 2. each entry's dependencies will be satisfied by something later
@@ -229,7 +230,7 @@ func main() {
 						}
 					} else {
 						key := t[0].Key
-						kSexp := key[0:scan_sexp(key, 0)]
+						kSexp := key[0:Scan_sexp(key, 0)]
 						oldT, ok := depMap[kSexp]
 						if !ok {
 							numDeps--

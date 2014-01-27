@@ -25,7 +25,7 @@ type JobServer struct {
 	last      map[string][]*Entry
 	done      map[string][]*Entry
 	jobber    Jobber
-	name      string
+	Name      string
 }
 
 // Each JobServer has a Jobber, which performs the actual search. The Jobber is
@@ -79,7 +79,7 @@ func (this *JobServer) Run(jobber Jobber) {
 													if k == key {
 														fmt.Fprintf(os.Stderr,
 					                                        "DEBUG: Jobber %s: %s cycled: %s\n",
-															this.name, key, msg)
+															this.Name, key, msg)
 														//TODO: pick less arbitrary target to kill
 														sentinel := make([]*Entry, 1)
 														sentinel[0] = new(Entry)

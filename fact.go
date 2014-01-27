@@ -86,7 +86,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 	close(out)
 }
 
-func scan_sexp(sexp string, off int) int {
+func Scan_sexp(sexp string, off int) int {
 	depth := 0
 	for ; off < len(sexp); off++ {
 		if sexp[off] == '[' {
@@ -195,7 +195,7 @@ func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry) (
 	j := len(list) - 1
 	for _, e := range list {
 		f := e.Fact
-		kSexp := e.Key[0:scan_sexp(e.Key, 0)]
+		kSexp := e.Key[0:Scan_sexp(e.Key, 0)]
 		if exp, ok := exports[kSexp]; ok {
 			f.Skin.Name = exp.Fact.Skin.Name
 		}

@@ -1,8 +1,8 @@
 # Naive set theory
 
-param (PROP prop.ghi () "")
-param (PEANO_MIN peano_min.ghi (PROP) "")
-param (PEANO peano_ax.ghi (PROP PEANO_MIN) "")
+param (PROP_TERMS prop_terms.ghi () "")
+param (PEANO_MIN peano_min.ghi (PROP_TERMS) "")
+param (PEANO peano_ax.ghi (PROP_TERMS PEANO_MIN) "")
 
 kind (set)
 
