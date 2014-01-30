@@ -22,7 +22,6 @@ func parseInterface(fn string, out chan *Entry) {
 	scanner := NewScanner(file)
 	for scanner.Scan() {
 		_ = scanner.Text()
-		// TODO: one day these will be keys, not labels
 		e := scanner.Entry()
 		if DEBUG {
 			fmt.Fprintf(os.Stderr, "Axiom: %s\n%s\n%s\n",
