@@ -234,7 +234,8 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		label, dvs, hyps, conc := s.Kids[0], s.Kids[1], s.Kids[2], s.Kids[3]
 		this.lastEntry = new(Entry)
 		this.lastEntry.Fact.Skin.Name = label.Leaf
-
+		// key is [skin, meat]
+		// or aka [[conc, hyps, dvs], [terms, kinds]]
 		key := bracketize([]string{
 			bracketize([]string{
 				this.stringifyTerm(conc),
