@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"os"
+)
+
 // A Draft is a possible solution-in-progress. For any given entry in the
 // entries list, each of its dependencies is either (a) listed later in entries,
 // or (b) a ""-valued key in needs. If the score is 0, the Draft is a complete
@@ -8,18 +13,35 @@ package main
 // a new Draft. If dependency x is satisfied by entry y, needs[x] = "index of y"
 // in entries. Equivalent Drafts will have identical hashes.
 type Draft struct {
-	Entries []*Entry
-	needs   map[string]string // would be int, if golang had generics
-	kinds   map[string]string
-	terms   map[string]string
-	hash    string
-	Score   float64
+	haves map[string]*Entry // bonemeat -> entry
+	needs map[string]int    // bonemeat -> tier#
+	kinds map[string]string // oldKind -> newKind
+	terms map[string]string // oldTerm -> newTerm
+	hash  string
+	Score float64
 }
 
-func copyMapStringString(dst, src map[string]string) {
+// My kingdom for generics
+func cloneMapStringInt(src map[string]int) map[string]int {
+	dst := make(map[string]int, len(src))
 	for k, v := range src {
 		dst[k] = v
 	}
+	return dst
+}
+func cloneMapStringPEntry(src map[string]*Entry) map[string]*Entry {
+	dst := make(map[string]*Entry, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+func cloneMapStringString(src map[string]string) map[string]string {
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }
 
 // shortcuts the transitive closure the map. panics if any cycle is detected.
@@ -43,8 +65,9 @@ func (this *Draft) Hash() string {
 
 func (this *Draft) String() string {
 	s := ""
-	for _, e := range this.Entries {
-		s += e.Fact.Skin.Name + ","
+	for _, e := range this.haves {
+		s += fmt.Sprintf("%s(%d),", e.Fact.Skin.Name,
+			this.needs[BoneMeatPrefix(e.Key)])
 	}
 	return s
 }
@@ -55,29 +78,52 @@ func (this *Draft) rewriteKey(key string) string {
 	}
 	panic(-2) // TODO
 }
-func (this *Draft) AddNeed(need string) (that *Draft) {
+func (this *Draft) AddTarget(need string) (that *Draft) {
+	return this.addNeed(need, 0, nil)
+}
+func (this *Draft) addNeed(need string, tier int,
+	cycle map[string]bool) (that *Draft) {
 	need2 := this.rewriteKey(need)
-	if _, ok := this.needs[need]; ok {
-		// adding a need already present: no-op.
+	if t, ok := this.needs[need]; ok {
+		// adding a need already present; elevate tiers if necessary
+		if t < tier {
+			this.needs[need] = tier
+			entry, ok := this.haves[need]
+			if !ok {
+				return this
+			}
+			// already have an entry for this need; bump up all deps
+			if cycle == nil {
+				cycle = make(map[string]bool)
+			}
+			if _, ok := cycle[need]; ok {
+				// Cycle detected; abort
+				return nil
+			}
+			cycle[need] = true
+			for _, dep := range entry.Fact.Tree.Deps {
+				this = this.addNeed(dep, tier+1, cycle)
+				if this == nil {
+					return this
+				}
+			}
+		}
 		return this
 	}
-	that = &Draft{
-		this.Entries,
-		make(map[string]string, len(this.needs)+1),
-		this.kinds,
-		this.terms,
-		"",
-		this.Score,
-	}
-	copyMapStringString(that.needs, this.needs)
-	that.needs[need2] = ""
+	that = new(Draft)
+	that.haves = this.haves
+	that.needs = cloneMapStringInt(this.needs)
+	that.kinds = this.kinds
+	that.terms = this.terms
+	that.Score = this.Score
+	that.needs[need2] = tier
 	that.Score++
 	return
 }
 func (this *Draft) TopNeed() (need string, ok bool) {
 	//TODO: use a heap or something instead of scanning
-	for k, v := range this.needs {
-		if len(v) == 0 {
+	for k, _ := range this.needs {
+		if _, ok = this.haves[k]; !ok {
 			return k, true
 		}
 	}
@@ -85,8 +131,8 @@ func (this *Draft) TopNeed() (need string, ok bool) {
 }
 
 func (this *Draft) AddEntry(need string, entry *Entry) (that *Draft) {
-	var newTerms, newKinds map[string]string
-	if val, ok := this.needs[need]; ok && len(val) > 0 {
+	//var newTerms, newKinds map[string]string
+	if _, ok := this.haves[need]; ok {
 		// adding an entry already present is an error
 		panic(-3)
 	}
@@ -95,39 +141,59 @@ func (this *Draft) AddEntry(need string, entry *Entry) (that *Draft) {
 		return nil
 	}
 	that = new(Draft)
-	that.Entries = make([]*Entry, len(this.Entries)+1)
-	that.kinds = make(map[string]string, len(this.kinds))
-	that.terms = make(map[string]string, len(this.terms))
-	that.needs = make(map[string]string, len(this.needs))
+	that.haves = cloneMapStringPEntry(this.haves)
+	that.kinds = cloneMapStringString(this.kinds)
+	that.terms = cloneMapStringString(this.terms)
+	that.needs = cloneMapStringInt(this.needs)
 	that.Score = this.Score - 1
-	copy(that.Entries, this.Entries)
-	copyMapStringString(that.kinds, this.kinds)
-	copyMapStringString(that.kinds, newKinds)
-	closeTransMap(that.kinds)
-	copyMapStringString(that.terms, this.terms)
-	copyMapStringString(that.terms, newTerms)
-	closeTransMap(that.terms)
-
+	/** TODO
+	    copyMapStringString(that.kinds, newKinds)
+		closeTransMap(that.kinds)
+		copyMapStringString(that.terms, newTerms)
+		closeTransMap(that.terms)
+	**/
 	if len(that.terms) > len(this.terms) || len(that.kinds) > len(this.kinds) {
 		// TODO: with a reverse index this might go faster
 		for k, v := range this.needs {
 			k2 := that.rewriteKey(k)
 			that.needs[k2] = v
 		}
-	} else {
-		copyMapStringString(that.needs, this.needs)
 	}
-	that.Entries[len(this.Entries)] = entry
-	that.needs[need] = entry.Key
+	that.haves[need] = entry
+	tier, ok := this.needs[need]
+	if !ok {
+		// cannot add unneeded entry
+		panic(-4)
+	}
 	for _, dep := range entry.Fact.Tree.Deps {
-		that = that.AddNeed(dep)
+		that = that.addNeed(dep, tier+1, nil)
+		if that == nil {
+			return that
+		}
 	}
 	return that
 }
 
-func (this *Draft) Needs(need string) bool {
-	n, ok := this.needs[need]
-	return ok && len(n) == 0
+// Returns all the entries in appropriate reverse proof-order
+func (this *Draft) Flatten() []*Entry {
+	tiers := make([][]*Entry, 0)
+	for n, tier := range this.needs {
+		for len(tiers) <= tier {
+			tiers = append(tiers, make([]*Entry, 0))
+		}
+		e := this.haves[n]
+		if e == nil {
+			fmt.Fprintf(os.Stderr, "Entry not found: %v -> %v\n", n,
+				this.haves[n])
+			panic(-5)
+		}
+		tiers[tier] = append(tiers[tier], this.haves[n])
+	}
+	out := make([]*Entry, 0)
+	for _, t := range tiers {
+		out = append(out, t...)
+	}
+	return out
 }
 
 type DraftHeap []*Draft

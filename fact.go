@@ -49,11 +49,11 @@ type Entry struct {
 	IsDone bool
 }
 
-func (e *Entry) BonePrefix() string {
-	return e.Key[0:scan_sexp(e.Key, 1)]
+func BonePrefix(key string) string {
+	return key[0:scan_sexp(key, 1)]
 }
-func (e *Entry) BoneMeatPrefix() string {
-	return e.Key[0:scan_sexp(e.Key, 0)]
+func BoneMeatPrefix(key string) string {
+	return key[0:scan_sexp(key, 0)]
 }
 
 func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
@@ -202,7 +202,7 @@ func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry) (
 	j := len(list) - 1
 	for _, e := range list {
 		f := e.Fact
-		kSexp := e.BoneMeatPrefix()
+		kSexp := BoneMeatPrefix(e.Key)
 		if exp, ok := exports[kSexp]; ok {
 			f.Skin.Name = exp.Fact.Skin.Name
 		}

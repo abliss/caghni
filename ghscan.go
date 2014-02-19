@@ -246,7 +246,7 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 				bracketize(this.lastEntry.Fact.Meat.Terms),
 				bracketize(this.lastEntry.Fact.Meat.Kinds),
 			}),
-		})
+		}) + "!TODO:sha1_this"
 		this.lastEntry.Key = key
 	case "tvar", "var":
 		kind := s.Kids[0].Leaf

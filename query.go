@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/heap"
 	"flag"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -49,7 +50,7 @@ func parseInterfaces(interfaces []string) map[string]*Entry {
 	for jobs > 0 {
 		axiom := <-ch
 		if axiom != nil {
-			out[axiom.Key] = axiom
+			out[BoneMeatPrefix(axiom.Key)] = axiom
 		} else {
 			jobs--
 		}
@@ -86,6 +87,54 @@ func compactify(st *Entry, groundSet map[string]*Entry,
 	return out, stmts
 }
 
+func churn(db *leveldb.DB, groundBones map[string][]*Entry,
+	drafts *DraftHeap) *Draft {
+	laps := 0
+	for len(*drafts) > 0 {
+		draft := heap.Pop(drafts).(*Draft)
+		need, _ := draft.TopNeed()
+		bone := BonePrefix(need)
+		needers := make([]*Draft, 1)
+		needers[0] = draft
+		fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", draft, draft.Score, need)
+
+		// First check axioms in the groundSet
+		for _, v := range groundBones[bone] {
+			newDraft := draft.AddEntry(need, v)
+			if newDraft != nil {
+				heap.Push(drafts, newDraft)
+			}
+		}
+		// Then check proved theorems
+		resolved := make(chan *Entry, 10)
+		go GetFactsByPrefix(db, BonePrefix(need), resolved)
+
+		for e := range resolved {
+			if len(e.Fact.Tree.Deps) > 0 {
+				fmt.Fprintf(os.Stderr, "%s = %s, ",
+					BoneMeatPrefix(e.Key)[len(bone):], e.Fact.Skin.Name)
+				for _, d := range needers {
+					newDraft := d.AddEntry(need, e)
+					if newDraft != nil {
+						if _, ok := newDraft.TopNeed(); !ok {
+							fmt.Fprintf(os.Stderr, "Needless Draft! %v\n",
+								draft)
+							return newDraft
+						}
+						heap.Push(drafts, newDraft)
+					}
+				}
+			}
+		}
+		laps += 1
+		if laps > 40 {
+			return nil
+		}
+		fmt.Fprintf(os.Stderr, "\nDrafts length: %d\n", drafts.Len())
+	}
+	fmt.Fprintf(os.Stderr, "Out of drafts!")
+	return nil
+}
 func main() {
 	dbPath := flag.String("d", "facts.leveldb", "path to facts.leveldb")
 	imports := flag.String("i", "", "comma-separated list of .ghi imports")
@@ -102,21 +151,28 @@ func main() {
 	exportList := strings.Split(*exports, ",")
 	groundSet := parseInterfaces(importList)
 	targets := parseInterfaces(exportList)
+	groundBones := make(map[string][]*Entry)
+	for k, e := range groundSet {
+		arr := groundBones[BonePrefix(k)]
+		arr = append(arr, e)
+		groundBones[BonePrefix(k)] = arr
+	}
 
 	draft := new(Draft)
 	for k, _ := range targets {
-		draft = draft.AddNeed(k)
+		draft = draft.AddTarget(BoneMeatPrefix(k))
 	}
+	drafts := new(DraftHeap)
+	heap.Init(drafts)
+	heap.Push(drafts, draft)
 
-	fmt.Fprintf(os.Stderr, "XXXX Score: %f\n", draft.score)
-
-	depMap := make(map[string][]*Entry)
-	newOut, _ := compactify(nil, groundSet, depMap)
+	winner := churn(db, groundBones, drafts)
+	fmt.Fprintf(os.Stderr, "\nResult: %s\n", winner)
 
 	for _, imp := range importList {
 		fmt.Printf("import (%s %s () \"\")\n", imp, imp)
 	}
-	_, err = WriteProofs(os.Stdout, newOut[1:], targets)
+	_, err = WriteProofs(os.Stdout, winner.Flatten(), targets)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(-1)
