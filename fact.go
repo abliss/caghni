@@ -111,7 +111,7 @@ func scan_sexp(sexp string, off int) int {
 }
 
 // makes a ghilbert-parsable string from a parsed-json sexp
-func (this *Fact) sexpToString(sexp interface{}) string {
+func (this *Fact) sexpToString(sexp interface{}, bind *Bind) string {
 	if s, ok := sexp.(string); ok {
 		fields := strings.Split(s, ".")
 		if len(fields) != 2 {
@@ -143,7 +143,7 @@ func (this *Fact) sexpToString(sexp interface{}) string {
 			return names[kindNum][num]
 		}
 	} else if s, ok := sexp.(float64); ok {
-		return this.Tree.Terms[int(s)]
+		return bind.Term(this.Tree.Terms[int(s)])
 	} else {
 		v := reflect.ValueOf(sexp)
 		l := v.Len()
@@ -152,7 +152,7 @@ func (this *Fact) sexpToString(sexp interface{}) string {
 			if i > 0 {
 				out += " "
 			}
-			out += this.sexpToString(v.Index(i).Interface())
+			out += this.sexpToString(v.Index(i).Interface(), bind)
 		}
 		out += ")"
 		return out
@@ -160,12 +160,13 @@ func (this *Fact) sexpToString(sexp interface{}) string {
 }
 
 // Extract the vars and tvars used in this fact into the given maps.
-func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool) {
+func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool,
+	bind *Bind) {
 	for ki, vs := range this.Skin.V {
 		if len(vs) == 0 {
 			continue
 		}
-		kind := this.Tree.Kinds[ki]
+		kind := bind.Kind(this.Tree.Kinds[ki])
 		vd, ok := varDecs[kind]
 		if !ok {
 			vd = make(map[string]bool)
@@ -179,7 +180,7 @@ func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool) {
 		if len(vs) == 0 {
 			continue
 		}
-		kind := this.Tree.Kinds[ki]
+		kind := bind.Kind(this.Tree.Kinds[ki])
 		vd, ok := tvarDecs[kind]
 		if !ok {
 			vd = make(map[string]bool)
@@ -191,8 +192,8 @@ func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool) {
 	}
 }
 
-func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry) (
-	n int, err error) {
+func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry,
+	bind *Bind) (n int, err error) {
 	// Step 1: scan through the list. Discard axioms and reverse the rest. Pull
 	// out all var names to predeclare. Rename exports to match interface.
 	depNames := make(map[string]string)
@@ -202,14 +203,14 @@ func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry) (
 	j := len(list) - 1
 	for _, e := range list {
 		f := e.Fact
-		kSexp := BoneMeatPrefix(e.Key)
-		if exp, ok := exports[kSexp]; ok {
+		boneMeat := bind.RewriteKey(BoneMeatPrefix(e.Key))
+		if exp, ok := exports[boneMeat]; ok {
 			f.Skin.Name = exp.Fact.Skin.Name
 		}
-		depNames[kSexp] = f.Skin.Name
+		depNames[boneMeat] = f.Skin.Name
 		if len(f.Tree.Deps) > 0 {
 			rev[j], j = &f, j-1
-			f.getVarNames(varDecs, tvarDecs)
+			f.getVarNames(varDecs, tvarDecs, bind)
 		}
 	}
 	rev = rev[j+1:]
@@ -246,7 +247,7 @@ func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry) (
 	// Step 3: write each of the proofs.
 	for _, f := range rev {
 		for i, d := range f.Tree.Deps {
-			newDep, ok := depNames[d]
+			newDep, ok := depNames[bind.RewriteKey(d)]
 			if !ok {
 				panic("Can't find dep for " + d)
 			}
@@ -259,24 +260,24 @@ func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry) (
 		write(f.Skin.Name)
 		write(" ")
 		if f.Tree.Dsig != nil {
-			write(f.Tree.Kinds[f.Tree.Dkind])
+			write(bind.Kind(f.Tree.Kinds[f.Tree.Dkind]))
 			write(" ")
-			write(f.sexpToString(f.Tree.Dsig))
+			write(f.sexpToString(f.Tree.Dsig, bind))
 			write(" ")
 		}
-		write(f.sexpToString(f.Bone.Free))
+		write(f.sexpToString(f.Bone.Free, bind))
 		write("\n   (")
 		for i, s := range f.Bone.Hyps {
 			write(f.Skin.HypNames[i])
 			write(" ")
-			write(f.sexpToString(s))
+			write(f.sexpToString(s, bind))
 			write("\n   ")
 		}
 		write(")\n   ")
-		write(f.sexpToString(f.Bone.Stmt))
+		write(f.sexpToString(f.Bone.Stmt, bind))
 		write("\n")
 		for _, s := range f.Tree.Proof {
-			write(f.sexpToString(s))
+			write(f.sexpToString(s, bind))
 			write("  ")
 		}
 		write("\n)\n\n")

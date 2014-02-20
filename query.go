@@ -127,7 +127,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			}
 		}
 		laps += 1
-		if laps > 40 {
+		if laps > 80 {
 			return nil
 		}
 		fmt.Fprintf(os.Stderr, "\nDrafts length: %d\n", drafts.Len())
@@ -168,11 +168,13 @@ func main() {
 
 	winner := churn(db, groundBones, drafts)
 	fmt.Fprintf(os.Stderr, "\nResult: %s\n", winner)
-
+	if winner == nil {
+		os.Exit(-1)
+	}
 	for _, imp := range importList {
 		fmt.Printf("import (%s %s () \"\")\n", imp, imp)
 	}
-	_, err = WriteProofs(os.Stdout, winner.Flatten(), targets)
+	_, err = WriteProofs(os.Stdout, winner.Flatten(), targets, winner.Bind)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(-1)

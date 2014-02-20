@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // A Draft is a possible solution-in-progress. For any given entry in the
@@ -13,10 +14,9 @@ import (
 // a new Draft. If dependency x is satisfied by entry y, needs[x] = "index of y"
 // in entries. Equivalent Drafts will have identical hashes.
 type Draft struct {
-	haves map[string]*Entry // bonemeat -> entry
-	needs map[string]int    // bonemeat -> tier#
-	kinds map[string]string // oldKind -> newKind
-	terms map[string]string // oldTerm -> newTerm
+	have  map[string]*Entry // bonemeat -> entry
+	need  map[string]int    // bonemeat -> tier#
+	Bind  *Bind
 	hash  string
 	Score float64
 }
@@ -36,28 +36,6 @@ func cloneMapStringPEntry(src map[string]*Entry) map[string]*Entry {
 	}
 	return dst
 }
-func cloneMapStringString(src map[string]string) map[string]string {
-	dst := make(map[string]string, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}
-
-// shortcuts the transitive closure the map. panics if any cycle is detected.
-func closeTransMap(m map[string]string) {
-	for cont := 0; cont < 2; cont++ {
-		for k, v := range m {
-			if j, ok := m[v]; ok {
-				if j == k {
-					panic(-1)
-				}
-				m[k] = j
-				cont = 0
-			}
-		}
-	}
-}
 
 func (this *Draft) Hash() string {
 	return "todo"
@@ -65,30 +43,26 @@ func (this *Draft) Hash() string {
 
 func (this *Draft) String() string {
 	s := ""
-	for _, e := range this.haves {
+	for _, e := range this.have {
 		s += fmt.Sprintf("%s(%d),", e.Fact.Skin.Name,
-			this.needs[BoneMeatPrefix(e.Key)])
+			this.need[BoneMeatPrefix(e.Key)])
 	}
 	return s
 }
 
-func (this *Draft) rewriteKey(key string) string {
-	if len(this.terms) == 0 && len(this.kinds) == 0 {
-		return key
-	}
-	panic(-2) // TODO
-}
 func (this *Draft) AddTarget(need string) (that *Draft) {
 	return this.addNeed(need, 0, nil)
 }
+
+// Mutates: to move existing needs to higher tiers
 func (this *Draft) addNeed(need string, tier int,
 	cycle map[string]bool) (that *Draft) {
-	need2 := this.rewriteKey(need)
-	if t, ok := this.needs[need]; ok {
+	need2 := this.Bind.RewriteKey(need)
+	if t, ok := this.need[need]; ok {
 		// adding a need already present; elevate tiers if necessary
 		if t < tier {
-			this.needs[need] = tier
-			entry, ok := this.haves[need]
+			this.need[need] = tier
+			entry, ok := this.have[need]
 			if !ok {
 				return this
 			}
@@ -111,56 +85,59 @@ func (this *Draft) addNeed(need string, tier int,
 		return this
 	}
 	that = new(Draft)
-	that.haves = this.haves
-	that.needs = cloneMapStringInt(this.needs)
-	that.kinds = this.kinds
-	that.terms = this.terms
+	that.have = this.have
+	that.need = cloneMapStringInt(this.need)
+	that.Bind = this.Bind
 	that.Score = this.Score
-	that.needs[need2] = tier
+	that.need[need2] = tier
 	that.Score++
 	return
 }
 func (this *Draft) TopNeed() (need string, ok bool) {
 	//TODO: use a heap or something instead of scanning
-	for k, _ := range this.needs {
-		if _, ok = this.haves[k]; !ok {
+	for k, _ := range this.need {
+		if _, ok = this.have[k]; !ok {
 			return k, true
 		}
 	}
 	return "", false
 }
 
+func parseMeat(key string) [][]string {
+	meat := key[len(BonePrefix(key))+1 : len(BoneMeatPrefix(key))-1]
+	tk := strings.Split(meat[2:len(meat)-2], "],[")
+	out := make([][]string, 2)
+	out[0] = strings.Split(tk[0], ",")
+	out[1] = strings.Split(tk[1], ",")
+	return out
+}
+
 func (this *Draft) AddEntry(need string, entry *Entry) (that *Draft) {
 	//var newTerms, newKinds map[string]string
-	if _, ok := this.haves[need]; ok {
+	if _, ok := this.have[need]; ok {
 		// adding an entry already present is an error
 		panic(-3)
 	}
-	if BoneMeatPrefix(entry.Key) != need {
-		// TODO: try remapping
+	that = new(Draft)
+	that.have = cloneMapStringPEntry(this.have)
+	that.Score = this.Score - 1
+	need2 := this.Bind.RewriteKey(BoneMeatPrefix(entry.Key))
+	that.Bind = this.Bind.Bind(need, need2)
+	if that == nil {
 		return nil
 	}
-	that = new(Draft)
-	that.haves = cloneMapStringPEntry(this.haves)
-	that.kinds = cloneMapStringString(this.kinds)
-	that.terms = cloneMapStringString(this.terms)
-	that.needs = cloneMapStringInt(this.needs)
-	that.Score = this.Score - 1
-	/** TODO
-	    copyMapStringString(that.kinds, newKinds)
-		closeTransMap(that.kinds)
-		copyMapStringString(that.terms, newTerms)
-		closeTransMap(that.terms)
-	**/
-	if len(that.terms) > len(this.terms) || len(that.kinds) > len(this.kinds) {
+	if this.Bind.LessThan(that.Bind) {
 		// TODO: with a reverse index this might go faster
-		for k, v := range this.needs {
-			k2 := that.rewriteKey(k)
-			that.needs[k2] = v
+		that.need = make(map[string]int, len(this.need))
+		for k, v := range this.need {
+			k2 := that.Bind.RewriteKey(k)
+			that.need[k2] = v
 		}
+	} else {
+		that.need = cloneMapStringInt(this.need)
 	}
-	that.haves[need] = entry
-	tier, ok := this.needs[need]
+	that.have[need] = entry
+	tier, ok := this.need[need]
 	if !ok {
 		// cannot add unneeded entry
 		panic(-4)
@@ -177,17 +154,17 @@ func (this *Draft) AddEntry(need string, entry *Entry) (that *Draft) {
 // Returns all the entries in appropriate reverse proof-order
 func (this *Draft) Flatten() []*Entry {
 	tiers := make([][]*Entry, 0)
-	for n, tier := range this.needs {
+	for n, tier := range this.need {
 		for len(tiers) <= tier {
 			tiers = append(tiers, make([]*Entry, 0))
 		}
-		e := this.haves[n]
+		e := this.have[n]
 		if e == nil {
 			fmt.Fprintf(os.Stderr, "Entry not found: %v -> %v\n", n,
-				this.haves[n])
+				this.have[n])
 			panic(-5)
 		}
-		tiers[tier] = append(tiers[tier], this.haves[n])
+		tiers[tier] = append(tiers[tier], this.have[n])
 	}
 	out := make([]*Entry, 0)
 	for _, t := range tiers {
