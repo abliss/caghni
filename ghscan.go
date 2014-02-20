@@ -160,8 +160,13 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 			}
 			r, n = utf8.DecodeRune(data[i:])
 			if r == utf8.RuneError {
-				err = errors.New("Bad UTF8 encoding!")
-				panic(&UTF8)
+				advance = 0
+				if atEOF {
+					err = errors.New("Bad UTF8 encoding! after " +
+						string(data[0:i]))
+					panic(&UTF8)
+				}
+				panic(&EOF)
 			}
 			i += n
 			if f() {
