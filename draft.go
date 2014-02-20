@@ -47,6 +47,7 @@ func (this *Draft) String() string {
 		s += fmt.Sprintf("%s(%d),", e.Fact.Skin.Name,
 			this.need[BoneMeatPrefix(e.Key)])
 	}
+	s += "_" + this.Bind.String()
 	return s
 }
 

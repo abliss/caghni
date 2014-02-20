@@ -97,6 +97,21 @@ func (this *Bind) LessThan(that *Bind) bool {
 		len(that.kinds) > len(this.kinds)
 }
 
+func (this *Bind) String() string {
+	if this == nil {
+		return "{}"
+	}
+	s := "{"
+	for k, v := range this.terms {
+		s += k + "->" + v + ","
+	}
+	s += "};{"
+	for k, v := range this.kinds {
+		s += k + "->" + v + ","
+	}
+	return s + "}"
+}
+
 // TODO: need something like this
 // shortcuts the transitive closure the map. panics if any cycle is detected.
 func closeTransMap(m map[string]string) {
