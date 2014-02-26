@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const DEBUG = true
+const DEBUG = false
 
 // Parses a ghi and emits the label of each stmt on out, followed by an empty
 // sentinel.
@@ -99,25 +99,26 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 		bone := mark.BoneKey()
 		needers := make([]*Draft, 1) // TODO: scan for other drafts needing this
 		needers[0] = draft
-		fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", draft, draft.Score, need)
+		fmt.Fprintf(os.Stderr, "%s (%d) needs %v\n", draft, int(draft.Score),
+			bone)
 
 		// First check axioms in the groundSet
 		for _, v := range groundBones[bone] {
-			newDraft := draft.AddEntry(need, v)
+			newDraft := draft.AddEntry(mark, v)
 			if newDraft != nil {
 				heap.Push(drafts, newDraft)
 			}
 		}
 		// Then check proved theorems
 		resolved := make(chan *Entry, 10)
-		go GetFactsByPrefix(db, BonePrefix(need), resolved)
+		go GetFactsByPrefix(db, bone, resolved)
 
 		for e := range resolved {
 			if len(e.Fact.Tree.Deps) > 0 {
-				fmt.Fprintf(os.Stderr, "%s = %s, ",
-					BoneMeatPrefix(e.Key)[len(bone):], e.Fact.Skin.Name)
+				fmt.Fprintf(os.Stderr, "Using %s = %s\n",
+					e.MarkStr()[len(bone):], e.Fact.Skin.Name)
 				for _, d := range needers {
-					newDraft := d.AddEntry(need, e)
+					newDraft := d.AddEntry(mark, e)
 					if newDraft != nil {
 						if _, ok := newDraft.TopNeed(); !ok {
 							fmt.Fprintf(os.Stderr, "Needless Draft! %v\n",
@@ -125,8 +126,14 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 							return newDraft
 						}
 						heap.Push(drafts, newDraft)
+					} else {
+						fmt.Fprintf(os.Stderr, "==> Nil!\n")
 					}
 				}
+			} else {
+				fmt.Fprintf(os.Stderr, "Skipping %s = %s:%v\n ",
+					e.MarkStr()[len(bone):], e.Fact.Skin.Name,
+					e.Fact)
 			}
 		}
 		laps += 1
@@ -162,8 +169,13 @@ func main() {
 	}
 
 	draft := new(Draft)
-	for k, e := range targets {
-		draft = draft.AddTarget(e.Mark())
+	for _, e := range targets {
+		targetMark := e.Mark()
+		if DEBUG {
+			fmt.Fprintf(os.Stderr, "Target: %s\n%s\n%s\n%v\n",
+				e.Fact.Skin.Name, e.Key, e.Fact, e.Mark())
+		}
+		draft = draft.AddTarget(targetMark)
 	}
 	drafts := new(DraftHeap)
 	heap.Init(drafts)

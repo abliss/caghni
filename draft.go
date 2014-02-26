@@ -1,5 +1,9 @@
 package main
 
+import (
+	"fmt"
+)
+
 type Need struct {
 	tier  int
 	mark  Mark
@@ -14,25 +18,25 @@ type Need struct {
 // a new Draft. If dependency x is satisfied by entry y, needs[x] = "index of y"
 // in entries. Equivalent Drafts will have identical hashes.
 type Draft struct {
-	need  map[string]Need // key is string(Mark)
+	need  map[string]*Need // key is string(Mark)
 	Bind  *Bind
 	hash  string
 	Score float64
 }
 
-func cloneNeed(src map[string]Need) map[string]Need {
-	dst := make(map[string]Need, len(src))
+func cloneNeed(src map[string]*Need) map[string]*Need {
+	dst := make(map[string]*Need, len(src))
 	for k, v := range src {
-		dst[k] = Need{v.tier, v.mark, v.entry}
+		dst[k] = &Need{v.tier, v.mark, v.entry}
 	}
 	return dst
 }
 
 func (this *Draft) String() string {
 	s := ""
-	for k, n := range this.need {
+	for _, n := range this.need {
 		if n.entry != nil {
-			s += n.entry.Fact.Skin.Name + "(" + string(n.tier) + ") "
+			s += fmt.Sprintf("%s (%d) ", n.entry.Fact.Skin.Name, n.tier)
 		}
 	}
 	s += "_" + this.Bind.String()
@@ -81,14 +85,15 @@ func (this *Draft) addNeed(mark Mark, tier int,
 	that.need = cloneNeed(this.need)
 	that.Bind = this.Bind
 	that.Score = this.Score
-	that.need[markStr2] = Need{tier, mark2, nil}
+
+	that.need[markStr2] = &Need{tier, mark2, nil}
 	that.Score++
 	return that
 }
 
 func (this *Draft) TopNeed() (mark Mark, ok bool) {
 	//TODO: use a heap or something instead of scanning
-	for k, v := range this.need {
+	for _, v := range this.need {
 		if v.entry == nil {
 			return v.mark, true
 		}
@@ -97,6 +102,10 @@ func (this *Draft) TopNeed() (mark Mark, ok bool) {
 }
 
 func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
+	if entry == nil {
+		panic("adding nil entry")
+	}
+	mark = this.Bind.Rewrite(mark)
 	markStr := mark.String()
 	need, ok := this.need[markStr]
 	if !ok {
@@ -114,15 +123,16 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	}
 	if this.Bind.LessThan(that.Bind) {
 		// TODO: with a reverse index this might go faster
-		that.need = make(map[string]Need, len(this.need))
-		for k, v := range this.need {
+		that.need = make(map[string]*Need, len(this.need))
+		for _, v := range this.need {
 			m2 := that.Bind.Rewrite(v.mark)
-			that.need[m2.String()] = Need{v.tier, m2, v.entry}
+			that.need[m2.String()] = &Need{v.tier, m2, v.entry}
 		}
 	} else {
 		that.need = cloneNeed(this.need)
 	}
-	need.entry = entry
+	newNeed := that.need[that.Bind.Rewrite(mark).String()]
+	newNeed.entry = entry
 	for _, dep := range entry.Fact.Tree.Deps {
 		that = that.addNeed(dep, need.tier+1, nil)
 		if that == nil {

@@ -16,6 +16,9 @@ func cloneMapStringString(src map[string]string) map[string]string {
 // RewriteMark takes a Mark from some fact's Deps array and returns a new
 // bonemeat after mapping its bound terms and kinds.
 func (this *Bind) Rewrite(mark Mark) Mark {
+	if this == nil {
+		return mark
+	}
 	return mark.Rewrite(this.terms, this.kinds)
 }
 

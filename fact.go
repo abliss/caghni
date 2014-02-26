@@ -22,11 +22,7 @@ type Mark [][]string
 
 func (this Mark) String() string {
 	// TODO: this might be faster manually since we know the format.
-	json, err := json.Marshal(this)
-	if err != nil {
-		panic(err)
-	}
-	return string(json)
+	return jsonize(this)
 }
 
 //BoneKey gives the prefix-string to use in a database query for bones like this
@@ -149,7 +145,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 			found = true
 			out <- keyFact
 		}
-		if DEBUG {
+		if true {
 			fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
 		}
 		if !iter.Next() {

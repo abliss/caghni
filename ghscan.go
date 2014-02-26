@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -88,7 +89,7 @@ func jsonize(ss interface{}) string {
 	if err != nil {
 		panic(err)
 	}
-	return string(json)
+	return strings.Replace(string(json), "\\u003e", ">", -1)
 }
 
 // Turns a sexp into a string.  Assumes all leafs are vars.
@@ -273,7 +274,7 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		}
 		token = make([]byte, 0)
 	case "param":
-		//PICKUP : how to handle?
+		//TODO : how to handle?
 	default:
 		// other commands (kind, term) we skip.
 		token = make([]byte, 0)
