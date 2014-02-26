@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const DEBUG = false
+const DEBUG = true
 
 // Parses a ghi and emits the label of each stmt on out, followed by an empty
 // sentinel.
@@ -50,7 +50,7 @@ func parseInterfaces(interfaces []string) map[string]*Entry {
 	for jobs > 0 {
 		axiom := <-ch
 		if axiom != nil {
-			out[BoneMeatPrefix(axiom.Key)] = axiom
+			out[axiom.MarkStr()] = axiom
 		} else {
 			jobs--
 		}
@@ -92,9 +92,12 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 	laps := 0
 	for len(*drafts) > 0 {
 		draft := heap.Pop(drafts).(*Draft)
-		need, _ := draft.TopNeed()
-		bone := BonePrefix(need)
-		needers := make([]*Draft, 1)
+		mark, ok := draft.TopNeed()
+		if !ok {
+			panic("No need!?")
+		}
+		bone := mark.BoneKey()
+		needers := make([]*Draft, 1) // TODO: scan for other drafts needing this
 		needers[0] = draft
 		fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", draft, draft.Score, need)
 
@@ -159,8 +162,8 @@ func main() {
 	}
 
 	draft := new(Draft)
-	for k, _ := range targets {
-		draft = draft.AddTarget(BoneMeatPrefix(k))
+	for k, e := range targets {
+		draft = draft.AddTarget(e.Mark())
 	}
 	drafts := new(DraftHeap)
 	heap.Init(drafts)

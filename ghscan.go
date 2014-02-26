@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -58,7 +59,15 @@ func indexOf(list []string, t string) (i int, l []string) {
 	return len(l), append(l, t)
 }
 
-// returns a JSON-like string wrapping
+func mapify(ss []*sexp, f func(s *sexp) string) []string {
+	out := make([]string, len(ss))
+	for i, k := range ss {
+		out[i] = f(k)
+	}
+	return out
+}
+
+// returns a JSON-like string wrapping, but without the quotes and escaping.
 func bracketize(ss []string) string {
 	out := "["
 	first := true
@@ -72,12 +81,14 @@ func bracketize(ss []string) string {
 	out += "]"
 	return out
 }
-func mapify(ss []*sexp, f func(s *sexp) string) []string {
-	out := make([]string, len(ss))
-	for i, k := range ss {
-		out[i] = f(k)
+
+// returns actual escaped JSON
+func jsonize(ss interface{}) string {
+	json, err := json.Marshal(ss)
+	if err != nil {
+		panic(err)
 	}
-	return out
+	return string(json)
 }
 
 // Turns a sexp into a string.  Assumes all leafs are vars.
@@ -239,19 +250,16 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		label, dvs, hyps, conc := s.Kids[0], s.Kids[1], s.Kids[2], s.Kids[3]
 		this.lastEntry = new(Entry)
 		this.lastEntry.Fact.Skin.Name = label.Leaf
-		// key is [skin, meat]
-		// or aka [[conc, hyps, dvs], [terms, kinds]]
+		// key is [[stmt, hyps, free], terms, kinds]
 		key := bracketize([]string{
-			bracketize([]string{
-				this.stringifyTerm(conc),
-				bracketize(mapify(hyps.Kids, this.stringifyTerm)),
-				bracketize(mapify(dvs.Kids, this.stringify)),
-			}),
-			bracketize([]string{
-				bracketize(this.lastEntry.Fact.Meat.Terms),
-				bracketize(this.lastEntry.Fact.Meat.Kinds),
-			}),
-		}) + "!TODO:sha1_this"
+			this.stringifyTerm(conc),
+			bracketize(mapify(hyps.Kids, this.stringifyTerm)),
+			bracketize(mapify(dvs.Kids, this.stringify)),
+		})
+		key += ";" + jsonize([][]string{
+			this.lastEntry.Fact.Meat.Terms,
+			this.lastEntry.Fact.Meat.Kinds,
+		}) + ";TODOsha1This"
 		this.lastEntry.Key = key
 	case "tvar", "var":
 		kind := s.Kids[0].Leaf

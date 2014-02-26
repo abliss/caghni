@@ -13,35 +13,15 @@ func cloneMapStringString(src map[string]string) map[string]string {
 	return dst
 }
 
-func (this *Bind) RewriteKey(key string) string {
-	if this == nil {
-		return key
-	}
-	if len(this.terms) == 0 && len(this.kinds) == 0 {
-		return key
-	}
-	out := BonePrefix(key) + ","
-	meat := parseMeat(key)
-	for i, t := range meat[0] {
-		if t2, ok := this.terms[t]; ok {
-			meat[0][i] = t2
-		}
-	}
-	for i, k := range meat[1] {
-		if k2, ok := this.kinds[k]; ok {
-			meat[1][i] = k2
-		}
-	}
-	kt := []string{bracketize(meat[0]), bracketize(meat[1])}
-	out += bracketize(kt) + "]"
-	return out
+// RewriteMark takes a Mark from some fact's Deps array and returns a new
+// bonemeat after mapping its bound terms and kinds.
+func (this *Bind) Rewrite(mark Mark) Mark {
+	return mark.Rewrite(this.terms, this.kinds)
 }
 
 // Given the original bonemeat need and the new bonemeat, write the mapping.
-func (this *Bind) Bind(in, out string) *Bind {
-	if in == out {
-		return this
-	}
+func (this *Bind) Bind(mark Mark, entry *Entry) *Bind {
+	newMark := this.Rewrite(entry.Mark())
 	that := new(Bind)
 	if this == nil {
 		that.terms = make(map[string]string)
@@ -50,19 +30,22 @@ func (this *Bind) Bind(in, out string) *Bind {
 		that.terms = cloneMapStringString(this.terms)
 		that.kinds = cloneMapStringString(this.kinds)
 	}
-	// TODO: this is unsafe if terms/kinds can contain [,] chars
-	mapStuff := func(a, b [][]string, w int, m map[string]string) {
-		for i, x := range b[w] {
-			if a[w][i] != x {
-				m[x] = a[w][i]
+	workDone := false
+	mapStuff := func(w int, m map[string]string) {
+		for i, x := range mark[w] {
+			if newMark[w][i] != x {
+				m[x] = newMark[w][i]
+				workDone = true
 			}
 		}
 	}
-	ins := parseMeat(in)
-	outs := parseMeat(out)
-	mapStuff(ins, outs, 0, that.terms)
-	mapStuff(ins, outs, 1, that.kinds)
-	return that
+	mapStuff(0, that.terms)
+	mapStuff(1, that.kinds)
+	if workDone {
+		return that
+	} else {
+		return this
+	}
 }
 
 func (this *Bind) Term(term string) string {

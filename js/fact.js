@@ -68,7 +68,7 @@ module.exports = function(obj) {
         nameDep: function(s, fact) {
             var that = this;
             return 'Deps.' + indexOf(this.Skin.DepNames, s, function(n) {
-                that.Tree.Deps[n] = fact.getKey();
+                that.Tree.Deps[n] = fact.getMark();
             });
         },
         nameKind: function(s) {
@@ -190,11 +190,11 @@ module.exports = function(obj) {
                         return stringify(s);
                     } else if (s.match(/^Hyps/)) {
                         return that.Skin.HypNames[s.substring(5)];
-                    } else if (s.match(/^deps/)) {
+                    } else if (s.match(/^Deps/)) {
                         var depNum = s.substring(5);
-                        var depKey = that.Tree.Deps[depNum];
+                        var depMark = that.Tree.Deps[depNum];
                         var origDep = that.Skin.DepNames[depNum];
-                        var depName = getFact(depKey, origDep).Skin.Name;
+                        var depName = getFact(depMark, origDep).Skin.Name;
                         return depName;
                     } else {
                         var varName = getVar(s);
@@ -209,13 +209,21 @@ module.exports = function(obj) {
             }
             return out;
         },
+        // The Mark is a representation of the Bone and Meat as [][]string.
+        getMark: function() {
+            var bone = [this.Bone.Stmt, this.Bone.Hyps, this.Bone.Free];
+            var boneStr = JSON.stringify(bone).replace(/"/g,"");
+            return [[boneStr], this.Meat.Terms, this.Meat.Kinds];
+        },
+        // Returns an appropriate database key, specific to bone and meat.
         getKey: function() {
-            var arr = [[this.Bone.Stmt, this.Bone.Hyps, this.Bone.Free],
-                       [this.Meat.Terms, this.Meat.Kinds]];
-            // TODO: removing quotes and backslashes is convenient, but destroys
-            // our ability to move backwards from key to fact, and opens us up
-            // to malicious injection. Wise??
-            return JSON.stringify(arr).replace(/"/g,"").replace(/\\\\/g, "\\");
+            var mark = this.getMark();
+            var boneStr = mark.shift()[0];
+            key = boneStr + ";" + JSON.stringify(mark);
+            if (Math.random() < 0.01) {
+                console.log("XXXX Key: " + key)
+            }
+            return key
         }
     };
     return obj;

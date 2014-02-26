@@ -1,10 +1,10 @@
 package main
 
-import (
-	"fmt"
-	"os"
-	"strings"
-)
+type Need struct {
+	tier  int
+	mark  Mark
+	entry *Entry // nil until the need is satisfied
+}
 
 // A Draft is a possible solution-in-progress. For any given entry in the
 // entries list, each of its dependencies is either (a) listed later in entries,
@@ -14,70 +14,61 @@ import (
 // a new Draft. If dependency x is satisfied by entry y, needs[x] = "index of y"
 // in entries. Equivalent Drafts will have identical hashes.
 type Draft struct {
-	have  map[string]*Entry // bonemeat -> entry
-	need  map[string]int    // bonemeat -> tier#
+	need  map[string]Need // key is string(Mark)
 	Bind  *Bind
 	hash  string
 	Score float64
 }
 
-// My kingdom for generics
-func cloneMapStringInt(src map[string]int) map[string]int {
-	dst := make(map[string]int, len(src))
+func cloneNeed(src map[string]Need) map[string]Need {
+	dst := make(map[string]Need, len(src))
 	for k, v := range src {
-		dst[k] = v
+		dst[k] = Need{v.tier, v.mark, v.entry}
 	}
 	return dst
-}
-func cloneMapStringPEntry(src map[string]*Entry) map[string]*Entry {
-	dst := make(map[string]*Entry, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}
-
-func (this *Draft) Hash() string {
-	return "todo"
 }
 
 func (this *Draft) String() string {
 	s := ""
-	for _, e := range this.have {
-		s += fmt.Sprintf("%s(%d),", e.Fact.Skin.Name,
-			this.need[BoneMeatPrefix(e.Key)])
+	for k, n := range this.need {
+		if n.entry != nil {
+			s += n.entry.Fact.Skin.Name + "(" + string(n.tier) + ") "
+		}
 	}
 	s += "_" + this.Bind.String()
 	return s
 }
 
-func (this *Draft) AddTarget(need string) (that *Draft) {
-	return this.addNeed(need, 0, nil)
+func (this *Draft) AddTarget(mark Mark) (that *Draft) {
+	return this.addNeed(mark, 0, nil)
 }
 
 // Mutates: to move existing needs to higher tiers
-func (this *Draft) addNeed(need string, tier int,
-	cycle map[string]bool) (that *Draft) {
-	need2 := this.Bind.RewriteKey(need)
-	if t, ok := this.need[need]; ok {
+func (this *Draft) addNeed(mark Mark, tier int,
+	cycle map[string]bool) *Draft {
+	// TODO: something fishy in here
+	mark2 := this.Bind.Rewrite(mark)
+	markStr2 := mark2.String()
+	if n, ok := this.need[markStr2]; ok {
 		// adding a need already present; elevate tiers if necessary
-		if t < tier {
-			this.need[need] = tier
-			entry, ok := this.have[need]
-			if !ok {
+		if n.tier < tier {
+			n.tier = tier
+			if n.entry == nil {
+				// need not satisfied, so no need to elevate more tiers.
 				return this
 			}
 			// already have an entry for this need; bump up all deps
 			if cycle == nil {
 				cycle = make(map[string]bool)
 			}
-			if _, ok := cycle[need]; ok {
+			if _, ok := cycle[markStr2]; ok {
 				// Cycle detected; abort
 				return nil
 			}
-			cycle[need] = true
-			for _, dep := range entry.Fact.Tree.Deps {
-				this = this.addNeed(dep, tier+1, cycle)
+			cycle[markStr2] = true
+			for _, dep := range n.entry.Fact.Tree.Deps {
+				dep2 := this.Bind.Rewrite(dep)
+				this = this.addNeed(dep2, tier+1, cycle)
 				if this == nil {
 					return this
 				}
@@ -85,68 +76,57 @@ func (this *Draft) addNeed(need string, tier int,
 		}
 		return this
 	}
-	that = new(Draft)
-	that.have = this.have
-	that.need = cloneMapStringInt(this.need)
+	// Adding a new need
+	that := new(Draft)
+	that.need = cloneNeed(this.need)
 	that.Bind = this.Bind
 	that.Score = this.Score
-	that.need[need2] = tier
+	that.need[markStr2] = Need{tier, mark2, nil}
 	that.Score++
-	return
+	return that
 }
-func (this *Draft) TopNeed() (need string, ok bool) {
+
+func (this *Draft) TopNeed() (mark Mark, ok bool) {
 	//TODO: use a heap or something instead of scanning
-	for k, _ := range this.need {
-		if _, ok = this.have[k]; !ok {
-			return k, true
+	for k, v := range this.need {
+		if v.entry == nil {
+			return v.mark, true
 		}
 	}
-	return "", false
+	return Mark{}, false
 }
 
-func parseMeat(key string) [][]string {
-	meat := key[len(BonePrefix(key))+1 : len(BoneMeatPrefix(key))-1]
-	tk := strings.Split(meat[2:len(meat)-2], "],[")
-	out := make([][]string, 2)
-	out[0] = strings.Split(tk[0], ",")
-	out[1] = strings.Split(tk[1], ",")
-	return out
-}
-
-func (this *Draft) AddEntry(need string, entry *Entry) (that *Draft) {
-	//var newTerms, newKinds map[string]string
-	if _, ok := this.have[need]; ok {
-		// adding an entry already present is an error
-		panic(-3)
+func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
+	markStr := mark.String()
+	need, ok := this.need[markStr]
+	if !ok {
+		panic("adding an unneeded entry")
 	}
+	if need.entry != nil {
+		panic("adding a need already satisfied")
+	}
+
 	that = new(Draft)
-	that.have = cloneMapStringPEntry(this.have)
 	that.Score = this.Score - 1
-	need2 := this.Bind.RewriteKey(BoneMeatPrefix(entry.Key))
-	that.Bind = this.Bind.Bind(need, need2)
+	that.Bind = this.Bind.Bind(mark, entry)
 	if that == nil {
 		return nil
 	}
 	if this.Bind.LessThan(that.Bind) {
 		// TODO: with a reverse index this might go faster
-		that.need = make(map[string]int, len(this.need))
+		that.need = make(map[string]Need, len(this.need))
 		for k, v := range this.need {
-			k2 := that.Bind.RewriteKey(k)
-			that.need[k2] = v
+			m2 := that.Bind.Rewrite(v.mark)
+			that.need[m2.String()] = Need{v.tier, m2, v.entry}
 		}
 	} else {
-		that.need = cloneMapStringInt(this.need)
+		that.need = cloneNeed(this.need)
 	}
-	that.have[need] = entry
-	tier, ok := this.need[need]
-	if !ok {
-		// cannot add unneeded entry
-		panic(-4)
-	}
+	need.entry = entry
 	for _, dep := range entry.Fact.Tree.Deps {
-		that = that.addNeed(dep, tier+1, nil)
+		that = that.addNeed(dep, need.tier+1, nil)
 		if that == nil {
-			return that
+			return nil
 		}
 	}
 	return that
@@ -155,17 +135,14 @@ func (this *Draft) AddEntry(need string, entry *Entry) (that *Draft) {
 // Returns all the entries in appropriate reverse proof-order
 func (this *Draft) Flatten() []*Entry {
 	tiers := make([][]*Entry, 0)
-	for n, tier := range this.need {
-		for len(tiers) <= tier {
+	for markStr, need := range this.need {
+		for len(tiers) <= need.tier {
 			tiers = append(tiers, make([]*Entry, 0))
 		}
-		e := this.have[n]
-		if e == nil {
-			fmt.Fprintf(os.Stderr, "Entry not found: %v -> %v\n", n,
-				this.have[n])
-			panic(-5)
+		if need.entry == nil {
+			panic("Entry not found: " + markStr)
 		}
-		tiers[tier] = append(tiers[tier], this.have[n])
+		tiers[need.tier] = append(tiers[need.tier], need.entry)
 	}
 	out := make([]*Entry, 0)
 	for _, t := range tiers {

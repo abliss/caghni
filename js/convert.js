@@ -4,10 +4,10 @@
  * Usage: ./convert.js indir outdir
  */
 
-var VERSION = 2;
+var VERSION = 3;
 /**
- * Version 2: Builds a LevelDB of all content (see README.md for
- * schema). 
+ * Version 3: Builds a LevelDB of all content (see README.md for
+ * schema). Deps are [][]string instead of string. 
  */
 
 var Process = process;
@@ -44,7 +44,7 @@ function makeDbKey(fact) {
     var hash = Crypto.createHash('sha1');
     hash.update(factJson);
     var sha1 = hash.digest('hex');
-    var key = fact.getKey() + "!" + sha1;
+    var key = fact.getKey() + ";" + sha1;
     
     return key;
 }
