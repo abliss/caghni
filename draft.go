@@ -36,7 +36,7 @@ func (this *Draft) String() string {
 	s := ""
 	for _, n := range this.need {
 		if n.entry != nil {
-			s += fmt.Sprintf("%s (%d) ", n.entry.Fact.Skin.Name, n.tier)
+			s += fmt.Sprintf("%s@%d ", n.entry.Fact.Skin.Name, n.tier)
 		}
 	}
 	s += "_" + this.Bind.String()
@@ -119,6 +119,7 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	that.Score = this.Score - 1
 	that.Bind = this.Bind.Bind(mark, entry)
 	if that == nil {
+		fmt.Println("#XXXX Cannot bind!")
 		return nil
 	}
 	if this.Bind.LessThan(that.Bind) {
@@ -136,6 +137,7 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	for _, dep := range entry.Fact.Tree.Deps {
 		that = that.addNeed(dep, need.tier+1, nil)
 		if that == nil {
+			fmt.Println("#XXXX Cannot add need " + dep.String())
 			return nil
 		}
 	}

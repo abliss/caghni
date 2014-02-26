@@ -100,13 +100,18 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 		needers := make([]*Draft, 1) // TODO: scan for other drafts needing this
 		needers[0] = draft
 		fmt.Fprintf(os.Stderr, "%s (%d) needs %v\n", draft, int(draft.Score),
-			bone)
+			mark)
 
 		// First check axioms in the groundSet
 		for _, v := range groundBones[bone] {
+			fmt.Fprintf(os.Stderr, "Ground Using %s = %s ",
+				v.MarkStr()[len(bone):], v.Fact.Skin.Name)
 			newDraft := draft.AddEntry(mark, v)
 			if newDraft != nil {
 				heap.Push(drafts, newDraft)
+				fmt.Fprintf(os.Stderr, "==> %d\n", int(newDraft.Score))
+			} else {
+				fmt.Fprintf(os.Stderr, "==> Nil!\n")
 			}
 		}
 		// Then check proved theorems
@@ -115,7 +120,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 
 		for e := range resolved {
 			if len(e.Fact.Tree.Deps) > 0 {
-				fmt.Fprintf(os.Stderr, "Using %s = %s\n",
+				fmt.Fprintf(os.Stderr, "Using %s = %s ",
 					e.MarkStr()[len(bone):], e.Fact.Skin.Name)
 				for _, d := range needers {
 					newDraft := d.AddEntry(mark, e)
@@ -125,19 +130,17 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 								draft)
 							return newDraft
 						}
+						fmt.Fprintf(os.Stderr, "==> %d\n", int(newDraft.Score))
 						heap.Push(drafts, newDraft)
 					} else {
 						fmt.Fprintf(os.Stderr, "==> Nil!\n")
 					}
 				}
-			} else {
-				fmt.Fprintf(os.Stderr, "Skipping %s = %s:%v\n ",
-					e.MarkStr()[len(bone):], e.Fact.Skin.Name,
-					e.Fact)
 			}
 		}
 		laps += 1
-		if laps > 80 {
+		if laps > 320 {
+			fmt.Fprintf(os.Stderr, "Too many laps, giving up!")
 			return nil
 		}
 		fmt.Fprintf(os.Stderr, "\nDrafts length: %d\n", drafts.Len())

@@ -281,7 +281,7 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
     var fact = Fact().setCmd(myKw).setName(label);
     this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
     this.factsByLabel[label] = fact;
-    if (label == "luk-1") {
+    if (label == "nic-luk1") {
         console.log("putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
     }
     factsDb.put(makeDbKey(fact), JSON.stringify(fact));

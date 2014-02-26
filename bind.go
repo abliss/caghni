@@ -1,5 +1,9 @@
 package main
 
+import (
+	"fmt"
+)
+
 type Bind struct {
 	terms map[string]string
 	kinds map[string]string
@@ -42,8 +46,8 @@ func (this *Bind) Bind(mark Mark, entry *Entry) *Bind {
 			}
 		}
 	}
-	mapStuff(0, that.terms)
-	mapStuff(1, that.kinds)
+	mapStuff(1, that.terms)
+	mapStuff(2, that.kinds)
 	if workDone {
 		return that
 	} else {
@@ -87,15 +91,7 @@ func (this *Bind) String() string {
 	if this == nil {
 		return "{}"
 	}
-	s := "{"
-	for k, v := range this.terms {
-		s += k + "->" + v + ","
-	}
-	s += "};{"
-	for k, v := range this.kinds {
-		s += k + "->" + v + ","
-	}
-	return s + "}"
+	return fmt.Sprintf("%v;%v", this.terms, this.kinds)
 }
 
 // TODO: need something like this

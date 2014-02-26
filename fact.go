@@ -145,7 +145,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 			found = true
 			out <- keyFact
 		}
-		if true {
+		if DEBUG {
 			fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
 		}
 		if !iter.Next() {
