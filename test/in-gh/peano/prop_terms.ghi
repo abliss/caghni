@@ -1,0 +1,27 @@
+# Just the logical connectives from propositional calculus
+param (PROP_MIN prop_min.ghi () "")
+
+tvar (wff ph ps ch th ta)
+
+term (wff (/\ ph ps))
+stmt (df-and () ()
+          (-. (-> (-> (/\ ph ps) (-. (-> ph (-. ps))))
+                  (-. (-> (-. (-> ph (-. ps))) (/\ ph ps))))))
+
+
+term (wff (<-> ph ps))
+stmt (def-bi () ()
+     (/\ (-> (<-> ph ps) (/\ (-> ph ps) (-> ps ph)))
+         (-> (/\ (-> ph ps) (-> ps ph)) (<-> ph ps))))
+
+term (wff (\/ ph ps))
+stmt (df-or () () (<-> (\/ ph ps) (-> (-. ph) ps)))
+
+term (wff (\/\/ ph ps ch))
+stmt (df-3or () () (<-> (\/\/ ph ps ch) (\/ (\/ ph ps) ch)))
+
+term (wff (/\/\ ph ps ch))
+stmt (df-3an () () (<-> (/\/\ ph ps ch) (/\ (/\ ph ps) ch)))
+
+term (wff (-/\ ph ps))
+stmt (df-nand () () (<-> (-/\ ph ps) (-. (/\ ph ps))))
