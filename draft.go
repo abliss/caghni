@@ -47,6 +47,14 @@ func (this *Draft) AddTarget(mark Mark) (that *Draft) {
 	return this.addNeed(mark, 0, nil)
 }
 
+func copymsb(in map[string]bool) map[string]bool {
+	out := make(map[string]bool)
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
 // Mutates: to move existing needs to higher tiers
 func (this *Draft) addNeed(mark Mark, tier int,
 	cycle map[string]bool) *Draft {
@@ -62,18 +70,19 @@ func (this *Draft) addNeed(mark Mark, tier int,
 				return this
 			}
 			// already have an entry for this need; bump up all deps
-			if cycle == nil {
-				cycle = make(map[string]bool)
-			}
 			if _, ok := cycle[markStr2]; ok {
 				// Cycle detected; abort
+				fmt.Println("#XXXX Cycle detected: " + markStr2)
 				return nil
 			}
+			cycle = copymsb(cycle)
 			cycle[markStr2] = true
 			for _, dep := range n.entry.Fact.Tree.Deps {
 				dep2 := this.Bind.Rewrite(dep)
 				this = this.addNeed(dep2, tier+1, cycle)
 				if this == nil {
+					fmt.Printf("#XXXX Cannot add need %v@%d(%s)\n",
+						dep2, tier+1, n.entry.Fact.Skin.Name)
 					return this
 				}
 			}
@@ -135,10 +144,10 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	}
 	newNeed := that.need[that.Bind.Rewrite(mark).String()]
 	newNeed.entry = entry
-	for _, dep := range entry.Fact.Tree.Deps {
+	for i, dep := range entry.Fact.Tree.Deps {
 		that = that.addNeed(dep, need.tier+1, nil)
 		if that == nil {
-			fmt.Println("#XXXX Cannot add need " + dep.String())
+			fmt.Printf("#XXXX Cannot add need %s=%v\n", entry.Fact.Skin.DepNames[i], dep.String())
 			return nil
 		}
 	}

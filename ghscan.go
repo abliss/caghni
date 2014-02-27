@@ -89,7 +89,11 @@ func jsonize(ss interface{}) string {
 	if err != nil {
 		panic(err)
 	}
-	return strings.Replace(string(json), "\\u003e", ">", -1)
+	out := string(json)
+	out = strings.Replace(out, "\\u003e", ">", -1)
+	out = strings.Replace(out, "\\u003c", "<", -1)
+	// TODO: not exactly canonical :(
+	return out
 }
 
 // Turns a sexp into a string.  Assumes all leafs are vars.
