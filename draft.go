@@ -117,9 +117,10 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 
 	that = new(Draft)
 	that.Score = this.Score - 1
-	that.Bind = this.Bind.Bind(mark, entry)
-	if that == nil {
+	that.Bind, ok = this.Bind.Bind(mark, entry)
+	if !ok {
 		fmt.Println("#XXXX Cannot bind!")
+		//TODO: should use comma ok, not nil
 		return nil
 	}
 	if this.Bind.LessThan(that.Bind) {

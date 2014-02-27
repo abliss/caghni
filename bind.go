@@ -5,16 +5,8 @@ import (
 )
 
 type Bind struct {
-	terms Subst
-	kinds Subst
-}
-
-func cloneMapStringString(src map[string]string) map[string]string {
-	dst := make(map[string]string, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
+	terms *Subst
+	kinds *Subst
 }
 
 // RewriteMark takes a Mark from some fact's Deps array and returns a new
@@ -27,32 +19,35 @@ func (this *Bind) Rewrite(mark Mark) Mark {
 }
 
 // Given the original bonemeat need and the new bonemeat, write the mapping.
-func (this *Bind) Bind(mark Mark, entry *Entry) *Bind {
-	//PICKUP: need to decline circular maps, also close transitive
+func (this *Bind) Bind(mark Mark, entry *Entry) (out *Bind, ok bool) {
 	newMark := this.Rewrite(entry.Mark())
-	that := new(Bind)
-	if this == nil {
-		that.terms = make(map[string]string)
-		that.kinds = make(map[string]string)
-	} else {
-		that.terms = cloneMapStringString(this.terms)
-		that.kinds = cloneMapStringString(this.kinds)
-	}
+	that := Bind{this.terms, this.kinds}
 	workDone := false
-	mapStuff := func(w int, m map[string]string) {
+	mapStuff := func(w int, s *Subst) (out *Subst, ok bool) {
+		out, ok = s, true
 		for i, x := range mark[w] {
 			if newMark[w][i] != x {
-				m[x] = newMark[w][i]
+				out, ok = out.Put(x, newMark[w][i])
+				if !ok {
+					return nil, false
+				}
 				workDone = true
 			}
 		}
+		return out, true
 	}
-	mapStuff(1, that.terms)
-	mapStuff(2, that.kinds)
+	that.terms, ok = mapStuff(1, this.terms)
+	if !ok {
+		return nil, false
+	}
+	that.kinds, ok = mapStuff(2, this.kinds)
+	if !ok {
+		return nil, false
+	}
 	if workDone {
-		return that
+		return &that, true
 	} else {
-		return this
+		return this, true
 	}
 }
 
@@ -60,20 +55,14 @@ func (this *Bind) Term(term string) string {
 	if this == nil {
 		return term
 	}
-	t, ok := this.terms[term]
-	if !ok {
-		return term
-	}
+	t, _ := this.terms.Get(term)
 	return t
 }
 func (this *Bind) Kind(kind string) string {
 	if this == nil {
 		return kind
 	}
-	k, ok := this.kinds[kind]
-	if !ok {
-		return kind
-	}
+	k, _ := this.kinds.Get(kind)
 	return k
 }
 
@@ -84,8 +73,8 @@ func (this *Bind) LessThan(that *Bind) bool {
 	if this == nil {
 		return true
 	}
-	return len(that.terms) > len(this.terms) ||
-		len(that.kinds) > len(this.kinds)
+	return len(*(that.terms)) > len(*(this.terms)) ||
+		len(*(that.kinds)) > len(*(this.kinds))
 }
 
 func (this *Bind) String() string {

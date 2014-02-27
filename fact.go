@@ -34,7 +34,7 @@ func (this Mark) BoneKey() string {
 // Rewrite takes two maps to rewrite the terms and kinds of the mark. The bone
 // parts are unchanged. If the output would be the same as the input, the input
 // is simply returned.
-func (this Mark) Rewrite(terms, kinds Subst) Mark {
+func (this Mark) Rewrite(terms, kinds *Subst) Mark {
 	that := make([][]string, 3)
 	that[0] = this[0]
 	mapStuff := func(j int, stuff Subst) bool {
@@ -50,11 +50,11 @@ func (this Mark) Rewrite(terms, kinds Subst) Mark {
 		return workDone
 	}
 	tChange, kChange := true, true
-	if terms == nil || !mapStuff(1, terms) {
+	if terms == nil || !mapStuff(1, *terms) {
 		that[1] = this[1]
 		tChange = false
 	}
-	if kinds == nil || !mapStuff(2, terms) {
+	if kinds == nil || !mapStuff(2, *kinds) {
 		that[2] = this[2]
 		kChange = false
 	}
