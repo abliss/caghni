@@ -34,18 +34,17 @@ func (this Mark) BoneKey() string {
 // Rewrite takes two maps to rewrite the terms and kinds of the mark. The bone
 // parts are unchanged. If the output would be the same as the input, the input
 // is simply returned.
-func (this Mark) Rewrite(terms, kinds map[string]string) Mark {
+func (this Mark) Rewrite(terms, kinds Subst) Mark {
 	that := make([][]string, 3)
 	that[0] = this[0]
-	mapStuff := func(j int, stuff map[string]string) bool {
+	mapStuff := func(j int, stuff Subst) bool {
 		workDone := false
 		that[j] = make([]string, len(this[j]))
 		for i, oldw := range this[j] {
-			if neww, ok := stuff[oldw]; ok {
-				that[j][i] = neww
+			var ok bool
+			that[j][i], ok = stuff[oldw]
+			if ok {
 				workDone = true
-			} else {
-				that[j][i] = oldw
 			}
 		}
 		return workDone

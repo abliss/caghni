@@ -5,8 +5,8 @@ import (
 )
 
 type Bind struct {
-	terms map[string]string
-	kinds map[string]string
+	terms Subst
+	kinds Subst
 }
 
 func cloneMapStringString(src map[string]string) map[string]string {
@@ -28,6 +28,7 @@ func (this *Bind) Rewrite(mark Mark) Mark {
 
 // Given the original bonemeat need and the new bonemeat, write the mapping.
 func (this *Bind) Bind(mark Mark, entry *Entry) *Bind {
+	//PICKUP: need to decline circular maps, also close transitive
 	newMark := this.Rewrite(entry.Mark())
 	that := new(Bind)
 	if this == nil {
