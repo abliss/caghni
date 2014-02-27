@@ -110,14 +110,14 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			newDraft := draft.AddEntry(mark, v)
 			if newDraft != nil {
 				heap.Push(drafts, newDraft)
-				fmt.Fprintf(os.Stderr, "==> %d\n", int(newDraft.Score))
+				fmt.Fprintf(os.Stderr, "==> %f\n", newDraft.Score)
 			} else {
 				fmt.Fprintf(os.Stderr, "==> Nil!\n")
 			}
 		}
 		// Then check proved theorems
-		resolved := make(chan *Entry, 10)
-		go GetFactsByPrefix(db, bone, resolved)
+		resolved := make(chan *Entry, 100)
+		GetFactsByPrefix(db, bone, resolved)
 
 		for e := range resolved {
 			if len(e.Fact.Tree.Deps) > 0 {
@@ -140,7 +140,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			}
 		}
 		laps += 1
-		if laps > 400 {
+		if laps > 8000 {
 			fmt.Fprintf(os.Stderr, "Too many laps, giving up!")
 			return nil
 		}

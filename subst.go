@@ -3,19 +3,19 @@ package main
 // Invariant: no key is also a value.
 type Subst map[string]string
 
+// For now, we disallow multiple keys mapping to the same value.
 func (this Subst) Put(key, value string) (out Subst, ok bool) {
-	newValue, ok := this[value]
-	if ok && newValue == key {
+	if _, ok := this[value]; ok {
 		return nil, false
 	}
-	if !ok {
-		newValue = value
+	if _, ok := this[key]; ok {
+		return nil, false
 	}
 	that := make(Subst, len(this)+1)
-	that[key] = newValue
+	that[key] = value
 	for k, v := range this {
-		if v == key {
-			that[k] = newValue
+		if v == key || v == value {
+			return nil, false
 		} else {
 			that[k] = v
 		}

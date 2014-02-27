@@ -72,7 +72,7 @@ func (this *Draft) addNeed(mark Mark, tier int,
 			// already have an entry for this need; bump up all deps
 			if _, ok := cycle[markStr2]; ok {
 				// Cycle detected; abort
-				fmt.Println("#XXXX Cycle detected: " + markStr2)
+				//fmt.Println("#XXXX Cycle detected: " + markStr2)
 				return nil
 			}
 			cycle = copymsb(cycle)
@@ -81,8 +81,8 @@ func (this *Draft) addNeed(mark Mark, tier int,
 				dep2 := this.Bind.Rewrite(dep)
 				this = this.addNeed(dep2, tier+1, cycle)
 				if this == nil {
-					fmt.Printf("#XXXX Cannot add need %v@%d(%s)\n",
-						dep2, tier+1, n.entry.Fact.Skin.Name)
+					/*fmt.Printf("#XXXX Cannot add need %v@%d(%s)\n",
+					dep2, tier+1, n.entry.Fact.Skin.Name)*/
 					return this
 				}
 			}
@@ -128,7 +128,7 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	that.Score = float64(int(this.Score) - 1)
 	that.Bind, ok = this.Bind.Bind(mark, entry)
 	if !ok {
-		fmt.Println("#XXXX Cannot bind!")
+		//fmt.Println("#XXXX Cannot bind!")
 		//TODO: should use comma ok, not nil
 		return nil
 	}
@@ -148,7 +148,8 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	for i, dep := range entry.Fact.Tree.Deps {
 		that = that.addNeed(dep, need.tier+1, nil)
 		if that == nil {
-			fmt.Printf("#XXXX Cannot add need %s=%v\n", entry.Fact.Skin.DepNames[i], dep.String())
+			_ = i
+			//fmt.Printf("#XXXX Cannot add need %s=%v\n", entry.Fact.Skin.DepNames[i], dep.String())
 			return nil
 		}
 	}

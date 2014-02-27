@@ -120,7 +120,20 @@ func (this *Entry) Mark() Mark {
 		this.Fact.Meat.Terms, this.Fact.Meat.Kinds}
 }
 
+var dbCache map[string][]*Entry
+
 func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
+	if dbCache == nil {
+		dbCache = make(map[string][]*Entry)
+	}
+	if es, ok := dbCache[pfix]; ok {
+		for _, e := range es {
+			out <- e
+		}
+		close(out)
+		return
+	}
+	es := make([]*Entry, 0)
 	start := []byte(pfix)
 	iter := db.NewIterator(nil)
 	defer iter.Release()
@@ -143,6 +156,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 		} else {
 			found = true
 			out <- keyFact
+			es = append(es, keyFact)
 		}
 		if DEBUG {
 			fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
@@ -154,6 +168,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 	if !found {
 		fmt.Fprintf(os.Stderr, "Pfix Not Found: %s\n", pfix)
 	}
+	dbCache[pfix] = es
 	close(out)
 }
 
