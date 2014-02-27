@@ -125,14 +125,15 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	}
 
 	that = new(Draft)
-	that.Score = this.Score - 1
+	that.Score = float64(int(this.Score) - 1)
 	that.Bind, ok = this.Bind.Bind(mark, entry)
 	if !ok {
 		fmt.Println("#XXXX Cannot bind!")
 		//TODO: should use comma ok, not nil
 		return nil
 	}
-	if this.Bind.LessThan(that.Bind) {
+	delta := this.Bind.LessThan(that.Bind)
+	if delta > 0 {
 		// TODO: with a reverse index this might go faster
 		that.need = make(map[string]*Need, len(this.need))
 		for _, v := range this.need {
@@ -151,6 +152,8 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 			return nil
 		}
 	}
+	that.Score += float64(len(that.Bind.terms)) / 1000.0
+	that.Score += float64(len(that.Bind.kinds)) / 1000.0
 	return that
 }
 
