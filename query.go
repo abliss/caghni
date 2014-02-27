@@ -89,6 +89,7 @@ func compactify(st *Entry, groundSet map[string]*Entry,
 
 func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 	drafts *DraftHeap) *Draft {
+	//draftsSeen := make(map[string]bool)
 	laps := 0
 	for len(*drafts) > 0 {
 		draft := heap.Pop(drafts).(*Draft)
@@ -131,8 +132,12 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 								draft)
 							return newDraft
 						}
-						fmt.Fprintf(os.Stderr, "==> %f\n", newDraft.Score)
-						heap.Push(drafts, newDraft)
+						//hash := newDraft.Hash()
+						if true { //!draftsSeen[hash] {
+							//draftsSeen[hash] = true
+							fmt.Fprintf(os.Stderr, "==> %f\n", newDraft.Score)
+							heap.Push(drafts, newDraft)
+						}
 					} else {
 						fmt.Fprintf(os.Stderr, "==> Nil!\n")
 					}

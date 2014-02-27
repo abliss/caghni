@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 )
 
 type Need struct {
@@ -20,8 +21,18 @@ type Need struct {
 type Draft struct {
 	need  map[string]*Need // key is string(Mark)
 	Bind  Bind
-	hash  string
 	Score float64
+}
+
+func (this *Draft) Hash() string {
+	out := ""
+	for _, n := range this.flatten() {
+		out += fmt.Sprintf("%d.%v", n.tier, n.mark)
+		if n.entry != nil {
+			out += n.entry.Key
+		}
+	}
+	return out
 }
 
 func cloneNeed(src map[string]*Need) map[string]*Need {
@@ -158,20 +169,30 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	return that
 }
 
-// Returns all the entries in appropriate reverse proof-order
 func (this *Draft) Flatten() []*Entry {
-	tiers := make([][]*Entry, 0)
-	for markStr, need := range this.need {
-		for len(tiers) <= need.tier {
-			tiers = append(tiers, make([]*Entry, 0))
-		}
+	needs := this.flatten()
+	es := make([]*Entry, len(needs))
+	for i, need := range needs {
 		if need.entry == nil {
-			panic("Entry not found: " + markStr)
+			panic("Entry not found: " + need.mark.String())
 		}
-		tiers[need.tier] = append(tiers[need.tier], need.entry)
+		es[i] = need.entry
 	}
-	out := make([]*Entry, 0)
+	return es
+}
+
+// Returns all the entries in appropriate reverse proof-order
+func (this *Draft) flatten() []*Need {
+	tiers := make([][]*Need, 0)
+	for _, need := range this.need {
+		for len(tiers) <= need.tier {
+			tiers = append(tiers, make([]*Need, 0))
+		}
+		tiers[need.tier] = append(tiers[need.tier], need)
+	}
+	out := make([]*Need, 0)
 	for _, t := range tiers {
+		sort.Sort(ByMark(t))
 		out = append(out, t...)
 	}
 	return out
@@ -194,4 +215,22 @@ func (h *DraftHeap) Pop() interface{} {
 	x := old[n-1]
 	*h = old[0 : n-1]
 	return x
+}
+
+type ByMark []*Need
+
+func (a ByMark) Len() int      { return len(a) }
+func (a ByMark) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByMark) Less(i, j int) bool {
+	if a[i].entry == nil {
+		if a[j].entry == nil {
+			return a[i].mark.String() < a[j].mark.String()
+		} else {
+			return true
+		}
+	}
+	if a[j].entry == nil {
+		return false
+	}
+	return a[i].entry.Key < a[j].entry.Key
 }
