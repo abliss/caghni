@@ -19,7 +19,7 @@ type Need struct {
 // in entries. Equivalent Drafts will have identical hashes.
 type Draft struct {
 	need  map[string]*Need // key is string(Mark)
-	Bind  *Bind
+	Bind  Bind
 	hash  string
 	Score float64
 }

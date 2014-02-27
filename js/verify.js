@@ -1549,7 +1549,7 @@ GH.ExportCtx.prototype.export_match = function(exp, vexp, varmap, invmap) {
         var v = this.vars[exp];
         var vv = this.verify.syms[vexp];
         if (!vv) {
-            throw 'Unknown vvariable ' + vexp;
+            throw new Error('Unknown vvariable ' + vexp + ' from var ' + exp);
         }   
         if (v[0] != vv[0] || v[1] != vv[1]) {
             log ('sort or kind mismatch for ' + exp);

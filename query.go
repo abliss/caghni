@@ -139,7 +139,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			}
 		}
 		laps += 1
-		if laps > 320 {
+		if laps > 40 {
 			fmt.Fprintf(os.Stderr, "Too many laps, giving up!")
 			return nil
 		}

@@ -34,7 +34,7 @@ func (this Mark) BoneKey() string {
 // Rewrite takes two maps to rewrite the terms and kinds of the mark. The bone
 // parts are unchanged. If the output would be the same as the input, the input
 // is simply returned.
-func (this Mark) Rewrite(terms, kinds *Subst) Mark {
+func (this Mark) Rewrite(terms, kinds Subst) Mark {
 	that := make([][]string, 3)
 	that[0] = this[0]
 	mapStuff := func(j int, stuff Subst) bool {
@@ -42,7 +42,7 @@ func (this Mark) Rewrite(terms, kinds *Subst) Mark {
 		that[j] = make([]string, len(this[j]))
 		for i, oldw := range this[j] {
 			var ok bool
-			that[j][i], ok = stuff[oldw]
+			that[j][i], ok = stuff.Get(oldw)
 			if ok {
 				workDone = true
 			}
@@ -50,11 +50,11 @@ func (this Mark) Rewrite(terms, kinds *Subst) Mark {
 		return workDone
 	}
 	tChange, kChange := true, true
-	if terms == nil || !mapStuff(1, *terms) {
+	if terms == nil || !mapStuff(1, terms) {
 		that[1] = this[1]
 		tChange = false
 	}
-	if kinds == nil || !mapStuff(2, *kinds) {
+	if kinds == nil || !mapStuff(2, kinds) {
 		that[2] = this[2]
 		kChange = false
 	}
@@ -137,9 +137,9 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 		keyFact.Key = string(key)
 		err := json.Unmarshal(value, &keyFact.Fact)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\nKey:%s\nValue: %s\n",
-				err, key, value)
-			panic(-1)
+			fmt.Fprintf(os.Stderr, "Error: %v\nPfix:%v\nKey:%s\nValue: %s\n",
+				err, pfix, key, value)
+			panic("JSON Error")
 		} else {
 			found = true
 			out <- keyFact
@@ -158,7 +158,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 }
 
 // makes a ghilbert-parsable string from a parsed-json sexp
-func (this *Fact) sexpToString(sexp interface{}, bind *Bind) string {
+func (this *Fact) sexpToString(sexp interface{}, bind Bind) string {
 	if s, ok := sexp.(string); ok {
 		fields := strings.Split(s, ".")
 		if len(fields) != 2 {
@@ -208,7 +208,7 @@ func (this *Fact) sexpToString(sexp interface{}, bind *Bind) string {
 
 // Extract the vars and tvars used in this fact into the given maps.
 func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool,
-	bind *Bind) {
+	bind Bind) {
 	for ki, vs := range this.Skin.V {
 		if len(vs) == 0 {
 			continue
@@ -240,7 +240,7 @@ func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool,
 }
 
 func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry,
-	bind *Bind) (n int, err error) {
+	bind Bind) (n int, err error) {
 	// Step 1: scan through the list. Discard axioms and reverse the rest. Pull
 	// out all var names to predeclare. Rename exports to match interface.
 	depNames := make(map[string]string)

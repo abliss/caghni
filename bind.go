@@ -5,31 +5,28 @@ import (
 )
 
 type Bind struct {
-	terms *Subst
-	kinds *Subst
+	terms Subst
+	kinds Subst
 }
 
 // RewriteMark takes a Mark from some fact's Deps array and returns a new
 // bonemeat after mapping its bound terms and kinds.
-func (this *Bind) Rewrite(mark Mark) Mark {
-	if this == nil {
-		return mark
-	}
+func (this Bind) Rewrite(mark Mark) Mark {
 	return mark.Rewrite(this.terms, this.kinds)
 }
 
 // Given the original bonemeat need and the new bonemeat, write the mapping.
-func (this *Bind) Bind(mark Mark, entry *Entry) (out *Bind, ok bool) {
+func (this Bind) Bind(mark Mark, entry *Entry) (out Bind, ok bool) {
 	newMark := this.Rewrite(entry.Mark())
 	that := Bind{this.terms, this.kinds}
 	workDone := false
-	mapStuff := func(w int, s *Subst) (out *Subst, ok bool) {
+	mapStuff := func(w int, s Subst) (out Subst, ok bool) {
 		out, ok = s, true
 		for i, x := range mark[w] {
 			if newMark[w][i] != x {
 				out, ok = out.Put(x, newMark[w][i])
 				if !ok {
-					return nil, false
+					return out, false
 				}
 				workDone = true
 			}
@@ -38,50 +35,35 @@ func (this *Bind) Bind(mark Mark, entry *Entry) (out *Bind, ok bool) {
 	}
 	that.terms, ok = mapStuff(1, this.terms)
 	if !ok {
-		return nil, false
+		return this, false
 	}
 	that.kinds, ok = mapStuff(2, this.kinds)
 	if !ok {
-		return nil, false
+		return this, false
 	}
 	if workDone {
-		return &that, true
+		return that, true
 	} else {
 		return this, true
 	}
 }
 
-func (this *Bind) Term(term string) string {
-	if this == nil {
-		return term
-	}
+func (this Bind) Term(term string) string {
 	t, _ := this.terms.Get(term)
 	return t
 }
-func (this *Bind) Kind(kind string) string {
-	if this == nil {
-		return kind
-	}
+func (this Bind) Kind(kind string) string {
 	k, _ := this.kinds.Get(kind)
 	return k
 }
 
-func (this *Bind) LessThan(that *Bind) bool {
-	if that == nil {
-		return false
-	}
-	if this == nil {
-		return true
-	}
-	return len(*(that.terms)) > len(*(this.terms)) ||
-		len(*(that.kinds)) > len(*(this.kinds))
+func (this Bind) LessThan(that Bind) bool {
+	return len(that.terms) > len(this.terms) ||
+		len(that.kinds) > len(this.kinds)
 }
 
-func (this *Bind) String() string {
-	if this == nil {
-		return "{}"
-	}
-	return fmt.Sprintf("%v;%v", this.terms, this.kinds)
+func (this Bind) String() string {
+	return fmt.Sprintf("{%v;%v}", this.terms, this.kinds)
 }
 
 // TODO: need something like this
