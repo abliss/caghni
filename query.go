@@ -104,6 +104,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 
 		// First check axioms in the groundSet
 		for _, v := range groundBones[bone] {
+			//TODO:PICKUP: need to disallow conflating ground terms
 			fmt.Fprintf(os.Stderr, "Ground Using %s = %s ",
 				v.MarkStr()[len(bone):], v.Fact.Skin.Name)
 			newDraft := draft.AddEntry(mark, v)
