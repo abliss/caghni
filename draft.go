@@ -129,7 +129,7 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	markStr := mark.String()
 	need, ok := this.need[markStr]
 	if !ok {
-		panic("adding an unneeded entry")
+		panic("adding an unneeded entry " + markStr)
 	}
 	if need.entry != nil {
 		panic("adding a need already satisfied")
@@ -164,8 +164,7 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 			return nil
 		}
 	}
-	that.Score += float64(len(that.Bind.terms)) / 1000.0
-	that.Score += float64(len(that.Bind.kinds)) / 1000.0
+	that.Score += float64(delta) / 10.0
 	return that
 }
 

@@ -57,12 +57,19 @@ func (this Bind) Kind(kind string) string {
 	return k
 }
 
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 // Returns the amount by which this bind is less than that one.
 func (this Bind) LessThan(that Bind) int {
-	t := (len(that.terms) - len(this.terms))
-	k := (len(that.kinds) - len(this.kinds))
-	//TODO: slow
-	return t*t + k*k
+	t := abs(len(that.terms) - len(this.terms))
+	k := abs(len(that.kinds) - len(this.kinds))
+	//TODO: this is not right
+	return t + k
 }
 
 func (this Bind) String() string {

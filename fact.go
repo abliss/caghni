@@ -21,8 +21,33 @@ import (
 type Mark [][]string
 
 func (this Mark) String() string {
-	// TODO: this might be faster manually since we know the format.
-	return jsonize(this)
+	if len(this[0]) == 1 {
+		str := this[0][0] + ";["
+		for j := 1; j < len(this); j++ {
+			if j > 1 {
+				str += ","
+			}
+			str += "["
+			for i, k := range this[j] {
+				k = strings.Replace(k, "\\", "\\\\", -1)
+				k = strings.Replace(k, "\"", "\\\"", -1)
+				if i > 0 {
+					str += ","
+				}
+				str += "\"" + k + "\""
+			}
+			str += "]"
+		}
+		str += "]"
+		// As a terrible hack, we cache the string value in the [0,1]th spot
+		this[0] = append(this[0], str)
+		return str
+	} else {
+		str := this[0][1]
+		return str
+
+	}
+
 }
 
 //BoneKey gives the prefix-string to use in a database query for bones like this
@@ -36,7 +61,8 @@ func (this Mark) BoneKey() string {
 // is simply returned.
 func (this Mark) Rewrite(terms, kinds Subst) Mark {
 	that := make([][]string, 3)
-	that[0] = this[0]
+	that[0] = make([]string, 1)
+	that[0][0] = this[0][0]
 	mapStuff := func(j int, stuff Subst) bool {
 		workDone := false
 		that[j] = make([]string, len(this[j]))
@@ -116,7 +142,7 @@ func (this *Entry) MarkStr() string {
 }
 
 func (this *Entry) Mark() Mark {
-	return Mark{[]string{BonePrefix(this.Key)},
+	return Mark{[]string{BonePrefix(this.Key), this.MarkStr()},
 		this.Fact.Meat.Terms, this.Fact.Meat.Kinds}
 }
 

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"log"
 	"os"
+	"runtime/pprof"
 	"strings"
 )
 
@@ -145,7 +147,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			}
 		}
 		laps += 1
-		if laps > 8000 {
+		if laps > 800 {
 			fmt.Fprintf(os.Stderr, "Too many laps, giving up!")
 			return nil
 		}
@@ -190,7 +192,14 @@ func main() {
 	heap.Init(drafts)
 	heap.Push(drafts, draft)
 
+	f, err := os.Create("pprof.txt")
+	if err != nil {
+		log.Fatal("Couldn't create pprof.txt! ", err)
+	}
+	pprof.StartCPUProfile(f)
 	winner := churn(db, groundBones, drafts)
+	pprof.StopCPUProfile()
+
 	fmt.Fprintf(os.Stderr, "\nResult: %s\n", winner)
 	if winner == nil {
 		os.Exit(-1)
