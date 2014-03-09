@@ -5,12 +5,6 @@ import (
 	"sort"
 )
 
-type Need struct {
-	tier  int
-	mark  Mark
-	entry *Entry // nil until the need is satisfied
-}
-
 // A Draft is a possible solution-in-progress. For any given entry in the
 // entries list, each of its dependencies is either (a) listed later in entries,
 // or (b) a ""-valued key in needs. If the score is 0, the Draft is a complete
@@ -19,7 +13,7 @@ type Need struct {
 // a new Draft. If dependency x is satisfied by entry y, needs[x] = "index of y"
 // in entries. Equivalent Drafts will have identical hashes.
 type Draft struct {
-	need  map[string]*Need // key is string(Mark)
+	need  NeedMap // key is string(Mark)
 	Bind  Bind
 	Score float64
 }
@@ -35,21 +29,13 @@ func (this *Draft) Hash() string {
 	return out
 }
 
-func cloneNeed(src map[string]*Need) map[string]*Need {
-	dst := make(map[string]*Need, len(src))
-	for k, v := range src {
-		dst[k] = &Need{v.tier, v.mark, v.entry}
-	}
-	return dst
-}
-
 func (this *Draft) String() string {
 	s := ""
-	for _, n := range this.need {
+	this.need.Each(func(n *Need) {
 		if n.entry != nil {
 			s += fmt.Sprintf("%s@%d ", n.entry.Fact.Skin.Name, n.tier)
 		}
-	}
+	})
 	s += "_" + this.Bind.String()
 	return s
 }
@@ -58,8 +44,8 @@ func (this *Draft) AddTarget(mark Mark) (that *Draft) {
 	return this.addNeed(mark, 0, nil)
 }
 
-func copymsb(in map[string]bool) map[string]bool {
-	out := make(map[string]bool)
+func copymib(in map[int]bool) map[int]bool {
+	out := make(map[int]bool)
 	for k, v := range in {
 		out[k] = v
 	}
@@ -68,27 +54,26 @@ func copymsb(in map[string]bool) map[string]bool {
 
 // Mutates: to move existing needs to higher tiers
 func (this *Draft) addNeed(mark Mark, tier int,
-	cycle map[string]bool) *Draft {
+	cycle map[int]bool) *Draft {
 	// TODO: something fishy in here
 	mark2 := this.Bind.Rewrite(mark)
-	markStr2 := mark2.String()
-	if n, ok := this.need[markStr2]; ok {
+	if n, ok := this.need.Get(mark2); ok {
 		// adding a need already present; elevate tiers if necessary
 		if n.tier < tier {
-			n.tier = tier
+			this.need.SetTier(mark2, tier)
 			if n.entry == nil {
 				// need not satisfied, so no need to elevate more tiers.
 				return this
 			}
 			// already have an entry for this need; bump up all deps
-			if _, ok := cycle[markStr2]; ok {
+			if _, ok := cycle[mark2.Hash()]; ok {
 				// Cycle detected; abort
 				//fmt.Println("#XXXX Cycle detected: " + markStr2)
 				return nil
 			}
-			cycle = copymsb(cycle)
-			cycle[markStr2] = true
-			for _, dep := range n.entry.Fact.Tree.Deps {
+			cycle = copymib(cycle)
+			cycle[mark2.Hash()] = true
+			for _, dep := range n.entry.Fact.Deps() {
 				dep2 := this.Bind.Rewrite(dep)
 				this = this.addNeed(dep2, tier+1, cycle)
 				if this == nil {
@@ -102,23 +87,18 @@ func (this *Draft) addNeed(mark Mark, tier int,
 	}
 	// Adding a new need
 	that := new(Draft)
-	that.need = cloneNeed(this.need)
+	that.need = this.need.Copy()
 	that.Bind = this.Bind
 	that.Score = this.Score
 
-	that.need[markStr2] = &Need{tier, mark2, nil}
+	that.need.Put(mark2, &Need{tier, mark2, nil})
 	that.Score++
 	return that
 }
 
 func (this *Draft) TopNeed() (mark Mark, ok bool) {
 	//TODO: use a heap or something instead of scanning
-	for _, v := range this.need {
-		if v.entry == nil {
-			return v.mark, true
-		}
-	}
-	return Mark{}, false
+	return this.need.TopMark()
 }
 
 func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
@@ -126,10 +106,9 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 		panic("adding nil entry")
 	}
 	mark = this.Bind.Rewrite(mark)
-	markStr := mark.String()
-	need, ok := this.need[markStr]
+	need, ok := this.need.Get(mark)
 	if !ok {
-		panic("adding an unneeded entry " + markStr)
+		panic("adding an unneeded entry " + mark.String())
 	}
 	if need.entry != nil {
 		panic("adding a need already satisfied")
@@ -146,17 +125,16 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	delta := this.Bind.LessThan(that.Bind)
 	if delta > 0 {
 		// TODO: with a reverse index this might go faster
-		that.need = make(map[string]*Need, len(this.need))
-		for _, v := range this.need {
-			m2 := that.Bind.Rewrite(v.mark)
-			that.need[m2.String()] = &Need{v.tier, m2, v.entry}
-		}
+		that.need = NeedMap{}
+		this.need.Each(func(n *Need) {
+			m2 := that.Bind.Rewrite(n.mark)
+			that.need.Put(m2, &Need{n.tier, m2, n.entry})
+		})
 	} else {
-		that.need = cloneNeed(this.need)
+		that.need = this.need.Copy()
 	}
-	newNeed := that.need[that.Bind.Rewrite(mark).String()]
-	newNeed.entry = entry
-	for i, dep := range entry.Fact.Tree.Deps {
+	that.need.SetEntry(that.Bind.Rewrite(mark), entry)
+	for i, dep := range entry.Fact.Deps() {
 		that = that.addNeed(dep, need.tier+1, nil)
 		if that == nil {
 			_ = i
@@ -183,12 +161,12 @@ func (this *Draft) Flatten() []*Entry {
 // Returns all the entries in appropriate reverse proof-order
 func (this *Draft) flatten() []*Need {
 	tiers := make([][]*Need, 0)
-	for _, need := range this.need {
-		for len(tiers) <= need.tier {
+	this.need.Each(func(n *Need) {
+		for len(tiers) <= n.tier {
 			tiers = append(tiers, make([]*Need, 0))
 		}
-		tiers[need.tier] = append(tiers[need.tier], need)
-	}
+		tiers[n.tier] = append(tiers[n.tier], n)
+	})
 	out := make([]*Need, 0)
 	for _, t := range tiers {
 		sort.Sort(ByMark(t))

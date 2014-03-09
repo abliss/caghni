@@ -74,7 +74,7 @@ func compactify(st *Entry, groundSet map[string]*Entry,
 			if !seen[e.Key] {
 				seen[e.Key] = true
 				out = append(out, e)
-				if (len(e.Fact.Tree.Deps) == 0) &&
+				if (len(e.Fact.Deps()) == 0) &&
 					(groundSet[e.Fact.Skin.Name] != nil) {
 					stmts++
 				}
@@ -123,7 +123,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 		GetFactsByPrefix(db, bone, resolved)
 
 		for e := range resolved {
-			if len(e.Fact.Tree.Deps) > 0 {
+			if len(e.Fact.Deps()) > 0 {
 				fmt.Fprintf(os.Stderr, "Using %s = %s ",
 					e.MarkStr()[len(bone):], e.Fact.Skin.Name)
 				for _, d := range needers {

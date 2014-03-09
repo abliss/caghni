@@ -22,9 +22,10 @@ func (this Bind) Bind(mark Mark, entry *Entry) (out Bind, ok bool) {
 	workDone := false
 	mapStuff := func(w int, s Subst) (out Subst, ok bool) {
 		out, ok = s, true
-		for i, x := range mark[w] {
-			if newMark[w][i] != x {
-				out, ok = out.Put(x, newMark[w][i])
+		// TODO: should move this code into mark
+		for i, x := range mark.list[w] {
+			if newMark.list[w][i] != x {
+				out, ok = out.Put(x, newMark.list[w][i])
 				if !ok {
 					return out, false
 				}

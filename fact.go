@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // A Mark is a JSON-unmarshalable, structure that specifes the bone and meat of
@@ -18,17 +19,61 @@ import (
 // this tree cannot contain commas or brackets). Best not to try to interact
 // with a Mark's contents directly; use the methods.  Marks should be considered
 // immutable.
-type Mark [][]string
+
+// To avoid excessive hashing, each mark will have a stored int hash value,
+// guaranteed to be exactly as unique as its string representation. TODO: uses
+// mutex, may be slow!
+
+var (
+	markHash  map[string]int
+	markMutex sync.RWMutex
+	markLast  int
+)
+
+type Mark struct {
+	list [][]string
+	flat *string
+	hash int
+}
+
+func (this Mark) Hash() int {
+	if this.hash == 0 {
+		if markHash == nil {
+			markMutex.Lock()
+			if markHash == nil {
+				markHash = make(map[string]int)
+			}
+			markMutex.Unlock()
+		}
+		markMutex.RLock()
+		hashKey := this.list[0][0] + "\x01" +
+			strings.Join(this.list[1], "\x00") + "\x01" +
+			strings.Join(this.list[2], "\x00")
+		val, ok := markHash[hashKey]
+		markMutex.RUnlock()
+		if ok {
+			this.hash = val
+		} else {
+			markMutex.Lock()
+			val = markLast + 1
+			markLast = val
+			markHash[hashKey] = val
+			markMutex.Unlock()
+			this.hash = val
+		}
+	}
+	return this.hash
+}
 
 func (this Mark) String() string {
-	if len(this[0]) == 1 {
-		str := this[0][0] + ";["
-		for j := 1; j < len(this); j++ {
+	if this.flat == nil {
+		str := this.list[0][0] + ";["
+		for j := 1; j < len(this.list); j++ {
 			if j > 1 {
 				str += ","
 			}
 			str += "["
-			for i, k := range this[j] {
+			for i, k := range this.list[j] {
 				k = strings.Replace(k, "\\", "\\\\", -1)
 				k = strings.Replace(k, "\"", "\\\"", -1)
 				if i > 0 {
@@ -39,13 +84,10 @@ func (this Mark) String() string {
 			str += "]"
 		}
 		str += "]"
-		// As a terrible hack, we cache the string value in the [0,1]th spot
-		this[0] = append(this[0], str)
+		this.flat = &str
 		return str
 	} else {
-		str := this[0][1]
-		return str
-
+		return *this.flat
 	}
 
 }
@@ -53,22 +95,23 @@ func (this Mark) String() string {
 //BoneKey gives the prefix-string to use in a database query for bones like this
 //mark.
 func (this Mark) BoneKey() string {
-	return this[0][0]
+	return this.list[0][0]
 }
 
 // Rewrite takes two maps to rewrite the terms and kinds of the mark. The bone
 // parts are unchanged. If the output would be the same as the input, the input
 // is simply returned.
 func (this Mark) Rewrite(terms, kinds Subst) Mark {
-	that := make([][]string, 3)
-	that[0] = make([]string, 1)
-	that[0][0] = this[0][0]
+	var that Mark
+	that.list = make([][]string, 3)
+	that.list[0] = make([]string, 1)
+	that.list[0][0] = this.list[0][0]
 	mapStuff := func(j int, stuff Subst) bool {
 		workDone := false
-		that[j] = make([]string, len(this[j]))
-		for i, oldw := range this[j] {
+		that.list[j] = make([]string, len(this.list[j]))
+		for i, oldw := range this.list[j] {
 			var ok bool
-			that[j][i], ok = stuff.Get(oldw)
+			that.list[j][i], ok = stuff.Get(oldw)
 			if ok {
 				workDone = true
 			}
@@ -77,11 +120,11 @@ func (this Mark) Rewrite(terms, kinds Subst) Mark {
 	}
 	tChange, kChange := true, true
 	if terms == nil || !mapStuff(1, terms) {
-		that[1] = this[1]
+		that.list[1] = this.list[1]
 		tChange = false
 	}
 	if kinds == nil || !mapStuff(2, kinds) {
-		that[2] = this[2]
+		that.list[2] = this.list[2]
 		kChange = false
 	}
 	if !tChange && !kChange {
@@ -113,14 +156,27 @@ type Fact struct {
 		T          [][]string
 	}
 	Tree struct {
-		Cmd   string
-		Deps  []Mark
-		Proof []interface{}
-		Dkind int
-		Dsig  []interface{}
-		Terms []string
-		Kinds []string
+		Cmd      string
+		Deps     [][][]string
+		depMarks []Mark // wrapped around the [][]string
+		Proof    []interface{}
+		Dkind    int
+		Dsig     []interface{}
+		Terms    []string
+		Kinds    []string
 	}
+}
+
+func (this *Fact) Deps() []Mark {
+	if this.Tree.depMarks == nil {
+		this.Tree.depMarks = make([]Mark, len(this.Tree.Deps))
+		for i, m := range this.Tree.Deps {
+			var mm Mark
+			mm.list = m
+			this.Tree.depMarks[i] = mm
+		}
+	}
+	return this.Tree.depMarks
 }
 
 // An Entry is a database entry containing a Fact and its Key. The Key is the
@@ -142,8 +198,10 @@ func (this *Entry) MarkStr() string {
 }
 
 func (this *Entry) Mark() Mark {
-	return Mark{[]string{BonePrefix(this.Key), this.MarkStr()},
+	var m Mark
+	m.list = [][]string{[]string{BonePrefix(this.Key), this.MarkStr()},
 		this.Fact.Meat.Terms, this.Fact.Meat.Kinds}
+	return m
 }
 
 var dbCache map[string][]*Entry
@@ -298,7 +356,7 @@ func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry,
 			f.Skin.Name = exp.Fact.Skin.Name
 		}
 		depNames[markStr] = f.Skin.Name
-		if len(f.Tree.Deps) > 0 {
+		if len(f.Deps()) > 0 {
 			rev[j], j = &f, j-1
 			f.getVarNames(varDecs, tvarDecs, bind)
 		}
@@ -336,7 +394,7 @@ func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry,
 
 	// Step 3: write each of the proofs.
 	for _, f := range rev {
-		for i, mark := range f.Tree.Deps {
+		for i, mark := range f.Deps() {
 			newMark := bind.Rewrite(mark)
 			markStr := newMark.String()
 			fmt.Fprintf(os.Stderr, "XXXX: %v\n      %v\n", mark, newMark)
