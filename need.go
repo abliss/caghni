@@ -10,7 +10,7 @@ type Need struct {
 }
 
 type NeedMap struct {
-	mine map[int]*Need
+	mine map[string]*Need
 }
 
 func (this *NeedMap) Get(key Mark) (val *Need, ok bool) {
@@ -20,7 +20,7 @@ func (this *NeedMap) Get(key Mark) (val *Need, ok bool) {
 
 func (this *NeedMap) Put(key Mark, val *Need) {
 	if this.mine == nil {
-		this.mine = make(map[int]*Need)
+		this.mine = make(map[string]*Need)
 	}
 	this.mine[key.Hash()] = val
 }
@@ -48,7 +48,7 @@ func (this *NeedMap) SetEntry(key Mark, entry *Entry) (ok bool) {
 }
 
 func (this *NeedMap) Copy() NeedMap {
-	dst := NeedMap{make(map[int]*Need, len(this.mine))}
+	dst := NeedMap{make(map[string]*Need, len(this.mine))}
 	for k, v := range this.mine {
 		dst.mine[k] = &Need{v.tier, v.mark, v.entry}
 	}

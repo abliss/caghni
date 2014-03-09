@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 // A Mark is a JSON-unmarshalable, structure that specifes the bone and meat of
@@ -20,47 +19,18 @@ import (
 // with a Mark's contents directly; use the methods.  Marks should be considered
 // immutable.
 
-// To avoid excessive hashing, each mark will have a stored int hash value,
-// guaranteed to be exactly as unique as its string representation. TODO: uses
-// mutex, may be slow!
-
-var (
-	markHash  map[string]int
-	markMutex sync.RWMutex
-	markLast  int
-)
-
 type Mark struct {
 	list [][]string
 	flat *string
-	hash int
+	hash string
+	memo map[Bind]Mark
 }
 
-func (this Mark) Hash() int {
-	if this.hash == 0 {
-		if markHash == nil {
-			markMutex.Lock()
-			if markHash == nil {
-				markHash = make(map[string]int)
-			}
-			markMutex.Unlock()
-		}
-		markMutex.RLock()
-		hashKey := this.list[0][0] + "\x01" +
+func (this Mark) Hash() string {
+	if len(this.hash) == 0 {
+		this.hash = this.list[0][0] + "\x01" +
 			strings.Join(this.list[1], "\x00") + "\x01" +
 			strings.Join(this.list[2], "\x00")
-		val, ok := markHash[hashKey]
-		markMutex.RUnlock()
-		if ok {
-			this.hash = val
-		} else {
-			markMutex.Lock()
-			val = markLast + 1
-			markLast = val
-			markHash[hashKey] = val
-			markMutex.Unlock()
-			this.hash = val
-		}
 	}
 	return this.hash
 }
@@ -101,12 +71,19 @@ func (this Mark) BoneKey() string {
 // Rewrite takes two maps to rewrite the terms and kinds of the mark. The bone
 // parts are unchanged. If the output would be the same as the input, the input
 // is simply returned.
-func (this Mark) Rewrite(terms, kinds Subst) Mark {
+func (this Mark) Rewrite(bind Bind) Mark {
+	if this.memo == nil {
+		this.memo = make(map[Bind]Mark)
+	}
+	if m, ok := this.memo[bind]; ok {
+		return m
+	}
 	var that Mark
 	that.list = make([][]string, 3)
 	that.list[0] = make([]string, 1)
 	that.list[0][0] = this.list[0][0]
-	mapStuff := func(j int, stuff Subst) bool {
+	// TODO: duplicate code in Bind
+	mapStuff := func(j int, stuff *Subst) bool {
 		workDone := false
 		that.list[j] = make([]string, len(this.list[j]))
 		for i, oldw := range this.list[j] {
@@ -119,17 +96,19 @@ func (this Mark) Rewrite(terms, kinds Subst) Mark {
 		return workDone
 	}
 	tChange, kChange := true, true
-	if terms == nil || !mapStuff(1, terms) {
+	if bind.terms.Len() == 0 || !mapStuff(1, bind.terms) {
 		that.list[1] = this.list[1]
 		tChange = false
 	}
-	if kinds == nil || !mapStuff(2, kinds) {
+	if bind.kinds.Len() == 0 || !mapStuff(2, bind.kinds) {
 		that.list[2] = this.list[2]
 		kChange = false
 	}
 	if !tChange && !kChange {
+		this.memo[bind] = this
 		return this
 	}
+	this.memo[bind] = that
 	return that
 }
 
@@ -184,6 +163,7 @@ func (this *Fact) Deps() []Mark {
 type Entry struct {
 	Key  string
 	Fact Fact
+	mark *Mark
 }
 
 // BonePrefix returns that prefix of a Key or MarkStr which only pertains to the fact's Bone,
@@ -198,10 +178,13 @@ func (this *Entry) MarkStr() string {
 }
 
 func (this *Entry) Mark() Mark {
-	var m Mark
-	m.list = [][]string{[]string{BonePrefix(this.Key), this.MarkStr()},
-		this.Fact.Meat.Terms, this.Fact.Meat.Kinds}
-	return m
+	if this.mark == nil {
+		m := new(Mark)
+		m.list = [][]string{[]string{BonePrefix(this.Key), this.MarkStr()},
+			this.Fact.Meat.Terms, this.Fact.Meat.Kinds}
+		this.mark = m
+	}
+	return *this.mark
 }
 
 var dbCache map[string][]*Entry

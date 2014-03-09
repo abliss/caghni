@@ -44,8 +44,8 @@ func (this *Draft) AddTarget(mark Mark) (that *Draft) {
 	return this.addNeed(mark, 0, nil)
 }
 
-func copymib(in map[int]bool) map[int]bool {
-	out := make(map[int]bool)
+func copymib(in map[string]bool) map[string]bool {
+	out := make(map[string]bool)
 	for k, v := range in {
 		out[k] = v
 	}
@@ -54,9 +54,9 @@ func copymib(in map[int]bool) map[int]bool {
 
 // Mutates: to move existing needs to higher tiers
 func (this *Draft) addNeed(mark Mark, tier int,
-	cycle map[int]bool) *Draft {
+	cycle map[string]bool) *Draft {
 	// TODO: something fishy in here
-	mark2 := this.Bind.Rewrite(mark)
+	mark2 := mark.Rewrite(this.Bind)
 	if n, ok := this.need.Get(mark2); ok {
 		// adding a need already present; elevate tiers if necessary
 		if n.tier < tier {

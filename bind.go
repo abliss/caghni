@@ -5,22 +5,22 @@ import (
 )
 
 type Bind struct {
-	terms Subst
-	kinds Subst
+	terms *Subst
+	kinds *Subst
 }
 
 // RewriteMark takes a Mark from some fact's Deps array and returns a new
 // bonemeat after mapping its bound terms and kinds.
 func (this Bind) Rewrite(mark Mark) Mark {
-	return mark.Rewrite(this.terms, this.kinds)
+	return mark.Rewrite(this)
 }
 
 // Given the original bonemeat need and the new bonemeat, write the mapping.
 func (this Bind) Bind(mark Mark, entry *Entry) (out Bind, ok bool) {
-	newMark := this.Rewrite(entry.Mark())
-	that := Bind{this.terms, this.kinds}
+	newMark := entry.Mark().Rewrite(this)
+	var that Bind
 	workDone := false
-	mapStuff := func(w int, s Subst) (out Subst, ok bool) {
+	mapStuff := func(w int, s *Subst) (out *Subst, ok bool) {
 		out, ok = s, true
 		// TODO: should move this code into mark
 		for i, x := range mark.list[w] {
@@ -67,8 +67,8 @@ func abs(x int) int {
 
 // Returns the amount by which this bind is less than that one.
 func (this Bind) LessThan(that Bind) int {
-	t := abs(len(that.terms) - len(this.terms))
-	k := abs(len(that.kinds) - len(this.kinds))
+	t := abs(that.terms.Len() - this.terms.Len())
+	k := abs(that.kinds.Len() - this.kinds.Len())
 	//TODO: this is not right
 	return t + k
 }

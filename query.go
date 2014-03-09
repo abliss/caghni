@@ -102,7 +102,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 		bone := mark.BoneKey()
 		needers := make([]*Draft, 1) // TODO: scan for other drafts needing this
 		needers[0] = draft
-		fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", draft, draft.Score,
+		fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", "draft", draft.Score,
 			mark)
 
 		// First check axioms in the groundSet
@@ -147,7 +147,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			}
 		}
 		laps += 1
-		if laps > 800 {
+		if laps > 4000 {
 			fmt.Fprintf(os.Stderr, "Too many laps, giving up!")
 			return nil
 		}
