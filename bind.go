@@ -7,11 +7,15 @@ import (
 type Bind struct {
 	terms *Subst
 	kinds *Subst
+	memo  map[string]Mark
 }
 
 // RewriteMark takes a Mark from some fact's Deps array and returns a new
 // bonemeat after mapping its bound terms and kinds.
 func (this Bind) Rewrite(mark Mark) Mark {
+	if this.memo == nil {
+		this.memo = make(map[string]Mark)
+	}
 	return mark.Rewrite(this)
 }
 

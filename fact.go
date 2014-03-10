@@ -23,8 +23,17 @@ type Mark struct {
 	list [][]string
 	flat *string
 	hash string
-	memo map[Bind]Mark
 }
+
+// Given a mark's hash, and the pointers to the subst pair, there is only one
+// answer for rewrite -- we memorize it.
+type MarkBind struct {
+	mark  string
+	terms *Subst
+	kinds *Subst
+}
+
+var memo map[MarkBind]Mark
 
 func (this Mark) Hash() string {
 	if len(this.hash) == 0 {
@@ -72,10 +81,11 @@ func (this Mark) BoneKey() string {
 // parts are unchanged. If the output would be the same as the input, the input
 // is simply returned.
 func (this Mark) Rewrite(bind Bind) Mark {
-	if this.memo == nil {
-		this.memo = make(map[Bind]Mark)
+	if memo == nil {
+		memo = make(map[MarkBind]Mark)
 	}
-	if m, ok := this.memo[bind]; ok {
+	keyMarkBind := MarkBind{this.Hash(), bind.terms, bind.kinds}
+	if m, ok := memo[keyMarkBind]; ok {
 		return m
 	}
 	var that Mark
@@ -105,10 +115,10 @@ func (this Mark) Rewrite(bind Bind) Mark {
 		kChange = false
 	}
 	if !tChange && !kChange {
-		this.memo[bind] = this
+		memo[keyMarkBind] = this
 		return this
 	}
-	this.memo[bind] = that
+	memo[keyMarkBind] = that
 	return that
 }
 
