@@ -31,11 +31,11 @@ func (this *Draft) Hash() string {
 
 func (this *Draft) String() string {
 	s := ""
-	this.need.Each(func(n *Need) {
+	for _, n := range this.need.All() {
 		if n.entry != nil {
 			s += fmt.Sprintf("%s@%d ", n.entry.Fact.Skin.Name, n.tier)
 		}
-	})
+	}
 	s += "_" + this.Bind.String()
 	return s
 }
@@ -91,7 +91,7 @@ func (this *Draft) addNeed(mark Mark, tier int,
 	that.Bind = this.Bind
 	that.Score = this.Score
 
-	that.need.Put(mark2, &Need{tier, mark2, nil})
+	that.need.Put(mark2, Need{tier, mark2, nil})
 	that.Score++
 	return that
 }
@@ -125,14 +125,11 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 	delta := this.Bind.LessThan(that.Bind)
 	if delta > 0 {
 		// TODO: with a reverse index this might go faster
-		that.need = NeedMap{}
-		this.need.Each(func(n *Need) {
-			m2 := that.Bind.Rewrite(n.mark)
-			that.need.Put(m2, &Need{n.tier, m2, n.entry})
-		})
+		that.need = this.need.Rewrite(that.Bind)
 	} else {
 		that.need = this.need.Copy()
 	}
+
 	that.need.SetEntry(that.Bind.Rewrite(mark), entry)
 	for i, dep := range entry.Fact.Deps() {
 		that = that.addNeed(dep, need.tier+1, nil)
@@ -159,15 +156,15 @@ func (this *Draft) Flatten() []*Entry {
 }
 
 // Returns all the entries in appropriate reverse proof-order
-func (this *Draft) flatten() []*Need {
-	tiers := make([][]*Need, 0)
-	this.need.Each(func(n *Need) {
+func (this *Draft) flatten() []Need {
+	tiers := make([][]Need, 0)
+	for _, n := range this.need.All() {
 		for len(tiers) <= n.tier {
-			tiers = append(tiers, make([]*Need, 0))
+			tiers = append(tiers, make([]Need, 0))
 		}
 		tiers[n.tier] = append(tiers[n.tier], n)
-	})
-	out := make([]*Need, 0)
+	}
+	out := make([]Need, 0)
 	for _, t := range tiers {
 		sort.Sort(ByMark(t))
 		out = append(out, t...)
@@ -194,7 +191,7 @@ func (h *DraftHeap) Pop() interface{} {
 	return x
 }
 
-type ByMark []*Need
+type ByMark []Need
 
 func (a ByMark) Len() int      { return len(a) }
 func (a ByMark) Swap(i, j int) { a[i], a[j] = a[j], a[i] }

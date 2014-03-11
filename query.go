@@ -114,6 +114,9 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			if newDraft != nil {
 				heap.Push(drafts, newDraft)
 				fmt.Fprintf(os.Stderr, "==> %f\n", newDraft.Score)
+				if _, ok := newDraft.TopNeed(); !ok {
+					return newDraft
+				}
 			} else {
 				fmt.Fprintf(os.Stderr, "==> Nil!\n")
 			}
