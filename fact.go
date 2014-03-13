@@ -20,9 +20,10 @@ import (
 // immutable.
 
 type Mark struct {
-	list [][]string
-	flat *string
-	hash string
+	list  [][]string
+	flat  string
+	hash  string
+	Index int
 }
 
 // Given a mark's hash, and the pointers to the subst pair, there is only one
@@ -33,19 +34,32 @@ type MarkBind struct {
 	kinds *Subst
 }
 
-var memo map[MarkBind]Mark
+var (
+	// TODO: will need to sync these
+	memo        map[MarkBind]Mark
+	markIndices map[string]int
+)
 
 func (this *Mark) Hash() string {
 	if len(this.hash) == 0 {
 		this.hash = this.list[0][0] + "\x01" +
 			strings.Join(this.list[1], "\x00") + "\x01" +
 			strings.Join(this.list[2], "\x00")
+		if markIndices == nil {
+			markIndices = make(map[string]int)
+		}
+		index, ok := markIndices[this.hash]
+		if !ok {
+			index = len(markIndices)
+			markIndices[this.hash] = index
+		}
+		this.Index = index
 	}
 	return this.hash
 }
 
 func (this *Mark) String() string {
-	if this.flat == nil {
+	if len(this.flat) == 0 {
 		str := this.list[0][0] + ";["
 		for j := 1; j < len(this.list); j++ {
 			if j > 1 {
@@ -63,10 +77,10 @@ func (this *Mark) String() string {
 			str += "]"
 		}
 		str += "]"
-		this.flat = &str
+		this.flat = str
 		return str
 	} else {
-		return *this.flat
+		return this.flat
 	}
 
 }

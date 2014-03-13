@@ -41,20 +41,42 @@ func (this *Draft) String() string {
 }
 
 func (this *Draft) AddTarget(mark Mark) (that *Draft) {
-	return this.addNeed(mark, 0, nil)
+	return this.addNeed(mark, 0)
 }
 
-func copymib(in map[string]bool) map[string]bool {
-	out := make(map[string]bool)
-	for k, v := range in {
-		out[k] = v
+// map[mark]bool
+type Cycle struct {
+	a []bool
+}
+
+func (this *Cycle) Put(m Mark) {
+	if len(this.a) <= m.Index {
+		newA := make([]bool, m.Index+1)
+		copy(newA, this.a)
+		this.a = newA
 	}
-	return out
+	this.a[m.Index] = true
+}
+func (this Cycle) Has(m Mark) bool {
+	if len(this.a) <= m.Index {
+		return false
+	}
+	return this.a[m.Index]
+}
+func (this Cycle) Copy() Cycle {
+	var that Cycle
+	that.a = make([]bool, len(this.a))
+	copy(that.a, this.a)
+	return that
+}
+
+func (this *Draft) addNeed(mark Mark, tier int) *Draft {
+	var cycle Cycle
+	return this.addNeedR(mark, tier, cycle)
 }
 
 // Mutates: to move existing needs to higher tiers
-func (this *Draft) addNeed(mark Mark, tier int,
-	cycle map[string]bool) *Draft {
+func (this *Draft) addNeedR(mark Mark, tier int, cycle Cycle) *Draft {
 	// TODO: something fishy in here
 	mark2 := mark.Rewrite(this.Bind)
 	if n, ok := this.need.Get(mark2); ok {
@@ -66,16 +88,16 @@ func (this *Draft) addNeed(mark Mark, tier int,
 				return this
 			}
 			// already have an entry for this need; bump up all deps
-			if _, ok := cycle[mark2.Hash()]; ok {
+			if cycle.Has(mark2) {
 				// Cycle detected; abort
 				//fmt.Println("#XXXX Cycle detected: " + markStr2)
 				return nil
 			}
-			cycle = copymib(cycle)
-			cycle[mark2.Hash()] = true
+			cycle := cycle.Copy()
+			cycle.Put(mark2)
 			for _, dep := range n.entry.Fact.Deps() {
 				dep2 := this.Bind.Rewrite(dep)
-				this = this.addNeed(dep2, tier+1, cycle)
+				this = this.addNeedR(dep2, tier+1, cycle)
 				if this == nil {
 					/*fmt.Printf("#XXXX Cannot add need %v@%d(%s)\n",
 					dep2, tier+1, n.entry.Fact.Skin.Name)*/
@@ -132,7 +154,7 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 
 	that.need.SetEntry(that.Bind.Rewrite(mark), entry)
 	for i, dep := range entry.Fact.Deps() {
-		that = that.addNeed(dep, need.tier+1, nil)
+		that = that.addNeed(dep, need.tier+1)
 		if that == nil {
 			_ = i
 			//fmt.Printf("#XXXX Cannot add need %s=%v\n", entry.Fact.Skin.DepNames[i], dep.String())
