@@ -142,8 +142,6 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 					newDraft := d.AddEntry(mark, e)
 					if newDraft != nil {
 						if _, ok := newDraft.TopNeed(); !ok {
-							fmt.Fprintf(os.Stderr, "Needless Draft! %v\n",
-								draft)
 							return newDraft
 						}
 						//hash := newDraft.Hash()
@@ -212,13 +210,20 @@ func main() {
 	heap.Init(drafts)
 	heap.Push(drafts, draft)
 
-	f, err := os.Create("pprof.txt")
+	cpu, err := os.Create("pprof-cpu.txt")
 	if err != nil {
 		log.Fatal("Couldn't create pprof.txt! ", err)
 	}
-	pprof.StartCPUProfile(f)
+	heap, err := os.Create("pprof-heap.txt")
+	if err != nil {
+		log.Fatal("Couldn't create pprof.txt! ", err)
+	}
+	pprof.StartCPUProfile(cpu)
 	winner := churn(db, groundBones, drafts)
 	pprof.StopCPUProfile()
+	cpu.Close()
+	pprof.WriteHeapProfile(heap)
+	heap.Close()
 
 	fmt.Fprintf(os.Stderr, "\nResult: %s\n", winner)
 	if winner == nil {

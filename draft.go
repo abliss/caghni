@@ -186,7 +186,7 @@ func (this *Draft) flatten() []Need {
 		for len(tiers) <= n.tier {
 			tiers = append(tiers, make([]Need, 0))
 		}
-		tiers[n.tier] = append(tiers[n.tier], n)
+		tiers[n.tier] = append(tiers[n.tier], *n)
 	}
 	out := make([]Need, 0)
 	for _, t := range tiers {

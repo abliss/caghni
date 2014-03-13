@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 )
 
 // This file implements a map[Mark]*Need that's easily clonable.
@@ -14,23 +15,31 @@ type Need struct {
 }
 
 type NeedMap struct {
-	a []*Need
+	indices []int
+	needs   []*Need
 }
 
 func (this NeedMap) Get(key Mark) (val Need, ok bool) {
-	if len(this.a) <= key.Index || this.a[key.Index] == nil {
-		return
+	i := sort.SearchInts(this.indices, key.Index)
+	if i < len(this.indices) && this.indices[i] == key.Index {
+		return *(this.needs[i]), true
 	}
-	return *(this.a[key.Index]), true
+	return Need{}, false
 }
 
 func (this *NeedMap) Put(key Mark, val Need) { // TODO: key == val.mark?
-	if len(this.a) <= key.Index {
-		newA := make([]*Need, MaxMark)
-		copy(newA, this.a)
-		this.a = newA
-	}
-	this.a[key.Index] = &val
+	i := sort.SearchInts(this.indices, key.Index)
+	l := len(this.indices) + 1
+	newIndices := make([]int, l)
+	newNeeds := make([]*Need, l)
+	copy(newIndices, this.indices[0:i])
+	copy(newNeeds, this.needs[0:i])
+	newIndices[i] = key.Index
+	newNeeds[i] = &val
+	copy(newIndices[i+1:], this.indices[i:])
+	copy(newNeeds[i+1:], this.needs[i:])
+	this.indices = newIndices
+	this.needs = newNeeds
 }
 
 func (this NeedMap) SetTier(key Mark, tier int) {
@@ -44,45 +53,36 @@ func (this NeedMap) SetTier(key Mark, tier int) {
 }
 
 func (this NeedMap) SetEntry(key Mark, entry *Entry) (ok bool) {
-	var val Need
-	val, ok = this.Get(key)
-	if !ok {
+	i := sort.SearchInts(this.indices, key.Index)
+	if i >= len(this.indices) && this.indices[i] != key.Index {
 		panic(fmt.Sprintf("Can't set entry %d:%s", key.Index, key.String()))
+		return false
 	}
-	if val.entry != nil {
-		panic("Can't reset entry " + key.String())
-	}
-	val.entry = entry
-	this.Put(key, val)
-	return
+	old := this.needs[i]
+	this.needs[i] = &Need{old.tier, old.mark, entry}
+	return true
 }
 
 func (this NeedMap) Copy() NeedMap {
 	var that NeedMap
-	that.a = make([]*Need, len(this.a))
-	copy(that.a, this.a)
+	that.indices = make([]int, len(this.indices))
+	copy(that.indices, this.indices)
+	that.needs = make([]*Need, len(this.needs))
+	copy(that.needs, this.needs)
 	return that
 }
 
-func (this *NeedMap) All() []Need {
-	out := make([]Need, 0, len(this.a))
-	for _, v := range this.a {
-		if v != nil {
-			out = append(out, *v)
-		}
-	}
-	return out
+func (this *NeedMap) All() []*Need {
+	return this.needs
 }
 
 func (this NeedMap) Len() int {
-	// TODO: dumb
-	return len(this.All())
+	return len(this.needs)
 }
 
 // Returns a mark whose need has no entry
 func (this NeedMap) TopMark() (Mark, bool) {
-	// TODO: dumb
-	for _, n := range this.All() {
+	for _, n := range this.needs {
 		if n.entry == nil {
 			return n.mark, true
 		}
@@ -91,12 +91,11 @@ func (this NeedMap) TopMark() (Mark, bool) {
 }
 func (this NeedMap) Rewrite(bind Bind) NeedMap {
 	var that NeedMap
-	that.a = make([]*Need, len(this.a))
-	for _, n := range this.a {
-		if n != nil {
-			newN := &Need{n.tier, bind.Rewrite(n.mark), n.entry}
-			that.a[newN.mark.Index] = newN
-		}
+	that.indices = make([]int, 0, len(this.indices))
+	that.needs = make([]*Need, 0, len(this.needs))
+	for _, n := range this.needs {
+		newN := Need{n.tier, bind.Rewrite(n.mark), n.entry}
+		that.Put(newN.mark, newN)
 	}
 	return that
 }
