@@ -169,7 +169,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			fmt.Fprintf(os.Stderr, "Too many laps, giving up!")
 			return nil
 		}
-		fmt.Fprintf(os.Stderr, "\nDrafts length: %d\n", drafts.Len())
+		fmt.Fprintf(os.Stderr, "Drafts length: %d\n", drafts.Len())
 	}
 	fmt.Fprintf(os.Stderr, "Out of drafts!")
 	return nil
@@ -178,6 +178,7 @@ func main() {
 	dbPath := flag.String("d", "facts.leveldb", "path to facts.leveldb")
 	imports := flag.String("i", "", "comma-separated list of .ghi imports")
 	exports := flag.String("e", "", "comma-separated list of .ghi exports")
+	prof := flag.Bool("prof", true, "do profiling?")
 	flag.Parse()
 	opt := opt.Options{ErrorIfMissing: true}
 	db, err := leveldb.OpenFile(*dbPath, &opt)
@@ -210,21 +211,25 @@ func main() {
 	heap.Init(drafts)
 	heap.Push(drafts, draft)
 
-	cpu, err := os.Create("pprof-cpu.txt")
-	if err != nil {
-		log.Fatal("Couldn't create pprof.txt! ", err)
+	var cpu, heap *os.File
+	if *prof {
+		cpu, err = os.Create("pprof-cpu.txt")
+		if err != nil {
+			log.Fatal("Couldn't create pprof.txt! ", err)
+		}
+		heap, err = os.Create("pprof-heap.txt")
+		if err != nil {
+			log.Fatal("Couldn't create pprof.txt! ", err)
+		}
+		pprof.StartCPUProfile(cpu)
 	}
-	heap, err := os.Create("pprof-heap.txt")
-	if err != nil {
-		log.Fatal("Couldn't create pprof.txt! ", err)
-	}
-	pprof.StartCPUProfile(cpu)
 	winner := churn(db, groundBones, drafts)
-	pprof.StopCPUProfile()
-	cpu.Close()
-	pprof.WriteHeapProfile(heap)
-	heap.Close()
-
+	if *prof {
+		pprof.StopCPUProfile()
+		pprof.WriteHeapProfile(heap)
+		cpu.Close()
+		heap.Close()
+	}
 	fmt.Fprintf(os.Stderr, "\nResult: %s\n", winner)
 	if winner == nil {
 		os.Exit(-1)
