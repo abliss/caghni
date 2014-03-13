@@ -90,7 +90,7 @@ func compactify(st *Entry, groundSet map[string]*Entry,
 }
 
 func churn(db *leveldb.DB, groundBones map[string][]*Entry,
-	drafts *DraftHeap) *Draft {
+	drafts *DraftHeap, maxLaps int) *Draft {
 	//draftsSeen := make(map[string]bool)
 	laps := 0
 	for len(*drafts) > 0 {
@@ -165,11 +165,13 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			}
 		}
 		laps += 1
-		if laps > 4000 {
+		if laps > maxLaps {
 			fmt.Fprintf(os.Stderr, "Too many laps, giving up!")
 			return nil
 		}
-		fmt.Fprintf(os.Stderr, "Drafts length: %d\n", drafts.Len())
+		if laps%100 == 0 {
+			fmt.Fprintf(os.Stderr, "Drafts length: %d\n", drafts.Len())
+		}
 	}
 	fmt.Fprintf(os.Stderr, "Out of drafts!")
 	return nil
@@ -179,6 +181,7 @@ func main() {
 	imports := flag.String("i", "", "comma-separated list of .ghi imports")
 	exports := flag.String("e", "", "comma-separated list of .ghi exports")
 	prof := flag.Bool("prof", true, "do profiling?")
+	laps := flag.Int("l", 8000, "Maximum iterations")
 	flag.Parse()
 	opt := opt.Options{ErrorIfMissing: true}
 	db, err := leveldb.OpenFile(*dbPath, &opt)
@@ -223,7 +226,7 @@ func main() {
 		}
 		pprof.StartCPUProfile(cpu)
 	}
-	winner := churn(db, groundBones, drafts)
+	winner := churn(db, groundBones, drafts, *laps)
 	if *prof {
 		pprof.StopCPUProfile()
 		pprof.WriteHeapProfile(heap)
