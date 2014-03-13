@@ -102,23 +102,30 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 		bone := mark.BoneKey()
 		needers := make([]*Draft, 1) // TODO: scan for other drafts needing this
 		needers[0] = draft
-		fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", "draft", draft.Score,
-			mark.String())
-
+		if DEBUG {
+			fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", "draft", draft.Score,
+				mark.String())
+		}
 		// First check axioms in the groundSet
 		for _, v := range groundBones[bone] {
 			//TODO:PICKUP: need to disallow conflating ground terms
-			fmt.Fprintf(os.Stderr, "Ground Using %s = %s ",
-				v.MarkStr()[len(bone):], v.Fact.Skin.Name)
+			if DEBUG {
+				fmt.Fprintf(os.Stderr, "Ground Using %s = %s ",
+					v.MarkStr()[len(bone):], v.Fact.Skin.Name)
+			}
 			newDraft := draft.AddEntry(mark, v)
 			if newDraft != nil {
 				heap.Push(drafts, newDraft)
-				fmt.Fprintf(os.Stderr, "==> %f\n", newDraft.Score)
+				if DEBUG {
+					fmt.Fprintf(os.Stderr, "==> %f\n", newDraft.Score)
+				}
 				if _, ok := newDraft.TopNeed(); !ok {
 					return newDraft
 				}
 			} else {
-				fmt.Fprintf(os.Stderr, "==> Nil!\n")
+				if DEBUG {
+					fmt.Fprintf(os.Stderr, "==> Nil!\n")
+				}
 			}
 		}
 		// Then check proved theorems
@@ -127,8 +134,10 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 
 		for e := range resolved {
 			if len(e.Fact.Deps()) > 0 {
-				fmt.Fprintf(os.Stderr, "Using %s = %s ",
-					e.MarkStr()[len(bone):], e.Fact.Skin.Name)
+				if DEBUG {
+					fmt.Fprintf(os.Stderr, "Using %s = %s ",
+						e.MarkStr()[len(bone):], e.Fact.Skin.Name)
+				}
 				for _, d := range needers {
 					newDraft := d.AddEntry(mark, e)
 					if newDraft != nil {
@@ -140,14 +149,19 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 						//hash := newDraft.Hash()
 						if true { //!draftsSeen[hash] {
 							//draftsSeen[hash] = true
-							fmt.Fprintf(os.Stderr, "==> %f\n", newDraft.Score)
+							if DEBUG {
+								fmt.Fprintf(os.Stderr, "==> %f\n",
+									newDraft.Score)
+							}
 							heap.Push(drafts, newDraft)
 						} else {
 							// TODO: this never seems to happen in practice...
 							fmt.Fprintf(os.Stderr, "==> Already Seen!\n")
 						}
 					} else {
-						fmt.Fprintf(os.Stderr, "==> Nil!\n")
+						if DEBUG {
+							fmt.Fprintf(os.Stderr, "==> Nil!\n")
+						}
 					}
 				}
 			}

@@ -1,6 +1,8 @@
 package main
 
-//import "fmt"
+import (
+	"fmt"
+)
 
 // This file implements a map[Mark]*Need that's easily clonable.
 
@@ -12,26 +14,26 @@ type Need struct {
 }
 
 type NeedMap struct {
-	mine map[string]Need
-	papa *NeedMap
+	a []*Need
 }
 
-func (this *NeedMap) Get(key Mark) (val Need, ok bool) {
-	val, ok = this.mine[key.Hash()]
-	if !ok && this.papa != nil {
-		val, ok = this.papa.Get(key)
+func (this NeedMap) Get(key Mark) (val Need, ok bool) {
+	if len(this.a) <= key.Index || this.a[key.Index] == nil {
+		return
 	}
-	return
+	return *(this.a[key.Index]), true
 }
 
 func (this *NeedMap) Put(key Mark, val Need) { // TODO: key == val.mark?
-	if this.mine == nil {
-		this.mine = make(map[string]Need)
+	if len(this.a) <= key.Index {
+		newA := make([]*Need, MaxMark)
+		copy(newA, this.a)
+		this.a = newA
 	}
-	this.mine[key.Hash()] = val
+	this.a[key.Index] = &val
 }
 
-func (this *NeedMap) SetTier(key Mark, tier int) {
+func (this NeedMap) SetTier(key Mark, tier int) {
 	val, ok := this.Get(key)
 	if !ok {
 		panic("Can't set tier")
@@ -41,11 +43,11 @@ func (this *NeedMap) SetTier(key Mark, tier int) {
 	return
 }
 
-func (this *NeedMap) SetEntry(key Mark, entry *Entry) (ok bool) {
+func (this NeedMap) SetEntry(key Mark, entry *Entry) (ok bool) {
 	var val Need
 	val, ok = this.Get(key)
 	if !ok {
-		panic("Can't set entry " + key.String())
+		panic(fmt.Sprintf("Can't set entry %d:%s", key.Index, key.String()))
 	}
 	if val.entry != nil {
 		panic("Can't reset entry " + key.String())
@@ -55,53 +57,46 @@ func (this *NeedMap) SetEntry(key Mark, entry *Entry) (ok bool) {
 	return
 }
 
-func (this *NeedMap) Copy() NeedMap {
-	var dst NeedMap
-	dst.papa = this
-	return dst
+func (this NeedMap) Copy() NeedMap {
+	var that NeedMap
+	that.a = make([]*Need, len(this.a))
+	copy(that.a, this.a)
+	return that
 }
 
 func (this *NeedMap) All() []Need {
-	var b Bind
-	that := this.Rewrite(b)
-	out := make([]Need, 0, len(that.mine))
-	for _, v := range that.mine {
-		out = append(out, v)
+	out := make([]Need, 0, len(this.a))
+	for _, v := range this.a {
+		if v != nil {
+			out = append(out, *v)
+		}
 	}
 	return out
 }
 
-func (this *NeedMap) Len() int {
-	if this == nil {
-		return 0
-	}
-	return len(this.mine) + this.papa.Len() // TODO: ignores duplicates
+func (this NeedMap) Len() int {
+	// TODO: dumb
+	return len(this.All())
 }
 
 // Returns a mark whose need has no entry
-func (this *NeedMap) TopMark() (Mark, bool) {
-	that := this
-	for that != nil {
-		for _, n := range that.mine {
-			if nn, _ := this.Get(n.mark); nn.entry == nil {
-				return nn.mark, true
-			}
+func (this NeedMap) TopMark() (Mark, bool) {
+	// TODO: dumb
+	for _, n := range this.All() {
+		if n.entry == nil {
+			return n.mark, true
 		}
-		that = that.papa
 	}
 	return Mark{}, false
 }
-func (this *NeedMap) Rewrite(bind Bind) NeedMap {
-	eirs := make(map[string]Need)
-	that := this
-	for that != nil {
-		for _, n := range that.mine {
-			n.mark = bind.Rewrite(n.mark)
-			if _, ok := eirs[n.mark.Hash()]; !ok {
-				eirs[n.mark.Hash()] = n
-			}
+func (this NeedMap) Rewrite(bind Bind) NeedMap {
+	var that NeedMap
+	that.a = make([]*Need, len(this.a))
+	for _, n := range this.a {
+		if n != nil {
+			newN := &Need{n.tier, bind.Rewrite(n.mark), n.entry}
+			that.a[newN.mark.Index] = newN
 		}
-		that = that.papa
 	}
-	return NeedMap{eirs, nil}
+	return that
 }

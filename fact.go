@@ -29,7 +29,7 @@ type Mark struct {
 // Given a mark's hash, and the pointers to the subst pair, there is only one
 // answer for rewrite -- we memorize it.
 type MarkBind struct {
-	mark  string
+	mark  int
 	terms *Subst
 	kinds *Subst
 }
@@ -38,6 +38,7 @@ var (
 	// TODO: will need to sync these
 	memo        map[MarkBind]Mark
 	markIndices map[string]int
+	MaxMark     int
 )
 
 func (this *Mark) Hash() string {
@@ -54,6 +55,9 @@ func (this *Mark) Hash() string {
 			markIndices[this.hash] = index
 		}
 		this.Index = index
+		if index >= MaxMark {
+			MaxMark = MaxMark*2 + 400
+		}
 	}
 	return this.hash
 }
@@ -98,7 +102,7 @@ func (this Mark) Rewrite(bind Bind) Mark {
 	if memo == nil {
 		memo = make(map[MarkBind]Mark)
 	}
-	keyMarkBind := MarkBind{this.Hash(), bind.terms, bind.kinds}
+	keyMarkBind := MarkBind{this.Index, bind.terms, bind.kinds}
 	if m, ok := memo[keyMarkBind]; ok {
 		return m
 	}
