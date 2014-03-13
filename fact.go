@@ -35,7 +35,7 @@ type MarkBind struct {
 
 var memo map[MarkBind]Mark
 
-func (this Mark) Hash() string {
+func (this *Mark) Hash() string {
 	if len(this.hash) == 0 {
 		this.hash = this.list[0][0] + "\x01" +
 			strings.Join(this.list[1], "\x00") + "\x01" +
@@ -44,7 +44,7 @@ func (this Mark) Hash() string {
 	return this.hash
 }
 
-func (this Mark) String() string {
+func (this *Mark) String() string {
 	if this.flat == nil {
 		str := this.list[0][0] + ";["
 		for j := 1; j < len(this.list); j++ {
@@ -115,9 +115,11 @@ func (this Mark) Rewrite(bind Bind) Mark {
 		kChange = false
 	}
 	if !tChange && !kChange {
-		memo[keyMarkBind] = this
-		return this
+		that = this
 	}
+	// Force precompute these
+	that.Hash()
+	that.String()
 	memo[keyMarkBind] = that
 	return that
 }
@@ -162,6 +164,9 @@ func (this *Fact) Deps() []Mark {
 		for i, m := range this.Tree.Deps {
 			var mm Mark
 			mm.list = m
+			// Force precompute these
+			mm.Hash()
+			mm.String()
 			this.Tree.depMarks[i] = mm
 		}
 	}
@@ -193,6 +198,9 @@ func (this *Entry) Mark() Mark {
 		m.list = [][]string{[]string{BonePrefix(this.Key), this.MarkStr()},
 			this.Fact.Meat.Terms, this.Fact.Meat.Kinds}
 		this.mark = m
+		// Force precompute these
+		m.Hash()
+		m.String()
 	}
 	return *this.mark
 }
@@ -333,25 +341,29 @@ func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool,
 
 func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry,
 	bind Bind) (n int, err error) {
-	// Step 1: scan through the list. Discard axioms and reverse the rest. Pull
-	// out all var names to predeclare. Rename exports to match interface.
+	// Step 1: scan through the list. Set aside axioms and reverse the
+	// rest. Pull out all var names to predeclare. Rename exports to match
+	// interface.
 	depNames := make(map[string]string)
 	varDecs := make(map[string]map[string]bool)
 	tvarDecs := make(map[string]map[string]bool)
+	axioms := make([]*Fact, 0)
 	rev := make([]*Fact, len(list))
 	j := len(list) - 1
 	for _, e := range list {
-		f := e.Fact
-		mark := bind.Rewrite(e.Mark())
+		f := &e.Fact
+		mark := e.Mark().Rewrite(bind)
 		markStr := mark.String()
-		fmt.Fprintf(os.Stderr, "XXXX: %v\n      %v\n", e.Key, mark)
 		if exp, ok := exports[markStr]; ok {
 			f.Skin.Name = exp.Fact.Skin.Name
 		}
 		depNames[markStr] = f.Skin.Name
 		if len(f.Deps()) > 0 {
-			rev[j], j = &f, j-1
+			rev[j], j = f, j-1
 			f.getVarNames(varDecs, tvarDecs, bind)
+		} else {
+			axioms = append(axioms, f)
+			// TODO: use these
 		}
 	}
 	rev = rev[j+1:]
@@ -390,7 +402,6 @@ func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry,
 		for i, mark := range f.Deps() {
 			newMark := bind.Rewrite(mark)
 			markStr := newMark.String()
-			fmt.Fprintf(os.Stderr, "XXXX: %v\n      %v\n", mark, newMark)
 			newDep, ok := depNames[markStr]
 			if !ok {
 				panic("Can't find dep for " + markStr)

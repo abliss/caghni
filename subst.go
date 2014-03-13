@@ -30,6 +30,13 @@ type Subst struct {
 	v []string
 }
 
+func (this Subst) String() string {
+	s := ""
+	for k, i := range this.m {
+		s += k + ":" + this.v[i] + " "
+	}
+	return s
+}
 func canonicalize(k, v []string) *Subst {
 	key := kv{strings.Join(k, "\x00"), strings.Join(v, "\x00")}
 	if substCanon == nil {

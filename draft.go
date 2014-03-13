@@ -155,7 +155,9 @@ func (this *Draft) Flatten() []*Entry {
 	return es
 }
 
-// Returns all the entries in appropriate reverse proof-order
+// Returns all the entries in appropriate reverse proof-order.  Within a tier,
+// entries are sorted alphabetically by mark, which is not particularly
+// meaningful, but is at least consistent.
 func (this *Draft) flatten() []Need {
 	tiers := make([][]Need, 0)
 	for _, n := range this.need.All() {
