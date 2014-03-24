@@ -29,6 +29,10 @@ func (this NeedMap) Get(key Mark) (val Need, ok bool) {
 
 func (this *NeedMap) Put(key Mark, val Need) { // TODO: key == val.mark?
 	i := sort.SearchInts(this.indices, key.Index)
+	if i < len(this.indices) && this.indices[i] == key.Index {
+		this.needs[i] = &val
+		return
+	}
 	l := len(this.indices) + 1
 	newIndices := make([]int, l)
 	newNeeds := make([]*Need, l)
@@ -49,7 +53,6 @@ func (this NeedMap) SetTier(key Mark, tier int) {
 	}
 	val.tier = tier
 	this.Put(key, val)
-	return
 }
 
 func (this NeedMap) SetEntry(key Mark, entry *Entry) (ok bool) {

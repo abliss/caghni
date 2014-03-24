@@ -359,9 +359,8 @@ func (this *Fact) getVarNames(varDecs, tvarDecs map[string]map[string]bool,
 
 func WriteProofs(out io.Writer, list []*Entry, exports map[string]*Entry,
 	bind Bind) (n int, err error) {
-	// Step 1: scan through the list. Set aside axioms and reverse the
-	// rest. Pull out all var names to predeclare. Rename exports to match
-	// interface.
+	// Step 1: scan through the list. Set aside axioms. Pull out all var names
+	// to predeclare. Rename exports to match interface.
 	depNames := make(map[string]string)
 	varDecs := make(map[string]map[string]bool)
 	tvarDecs := make(map[string]map[string]bool)

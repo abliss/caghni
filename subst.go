@@ -70,7 +70,12 @@ func (this *Subst) Put(key, value string) (out *Subst, ok bool) {
 	if _, ok := this.m[value]; ok {
 		return nil, false
 	}
-
+	for _, s := range this.v {
+		if s == value {
+			// TODO: support collisions
+			return nil, false
+		}
+	}
 	i := sort.SearchStrings(this.k, key)
 	l := len(this.k) + 1
 	k := make([]string, l)

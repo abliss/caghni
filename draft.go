@@ -31,7 +31,7 @@ func (this *Draft) Hash() string {
 
 func (this *Draft) String() string {
 	s := ""
-	for _, n := range this.need.All() {
+	for _, n := range this.flatten() {
 		if n.entry != nil {
 			s += fmt.Sprintf("%s@%d ", n.entry.Fact.Skin.Name, n.tier)
 		}
@@ -133,7 +133,8 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 		panic("adding an unneeded entry " + mark.String())
 	}
 	if need.entry != nil {
-		panic("adding a need already satisfied")
+		panic("adding a need already satisfied!" + mark.String() + " to " +
+			this.String())
 	}
 
 	that = new(Draft)

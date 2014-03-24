@@ -103,7 +103,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 		needers := make([]*Draft, 1) // TODO: scan for other drafts needing this
 		needers[0] = draft
 		if DEBUG {
-			fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", "draft", draft.Score,
+			fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", draft, draft.Score,
 				mark.String())
 		}
 		// First check axioms in the groundSet
