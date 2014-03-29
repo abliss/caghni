@@ -89,7 +89,7 @@ func compactify(st *Entry, groundSet map[string]*Entry,
 	return out, stmts
 }
 
-func churn(db *leveldb.DB, groundBones map[string][]*Entry,
+func churn(db *leveldb.DB, groundMeat map[string][]*Entry,
 	drafts *DraftHeap, maxLaps int) *Draft {
 	//draftsSeen := make(map[string]bool)
 	laps := 0
@@ -106,9 +106,11 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			fmt.Fprintf(os.Stderr, "%s (%f) needs %v\n", draft, draft.Score,
 				mark.String())
 		}
-		// First check axioms in the groundSet
-		for _, v := range groundBones[bone] {
-			//TODO:PICKUP: need to disallow conflating ground terms
+		// First check axioms in the groundSet. Use only ones which match fully,
+		// to avoid the need to rewrite our imports.
+		for _, v := range groundMeat[mark.String()] {
+			//TODO: need to disallow conflating ground terms
+			//TODO: also need to disallow re-defthm-ing them
 			if DEBUG {
 				fmt.Fprintf(os.Stderr, "Ground Using %s = %s ",
 					v.MarkStr()[len(bone):], v.Fact.Skin.Name)
@@ -170,7 +172,7 @@ func churn(db *leveldb.DB, groundBones map[string][]*Entry,
 			return nil
 		}
 		if laps%100 == 0 {
-			fmt.Fprintf(os.Stderr, "Drafts length: %d\n", drafts.Len())
+			fmt.Fprintf(os.Stderr, "Laps: %d, Drafts: %d\n", laps, drafts.Len())
 		}
 	}
 	fmt.Fprintf(os.Stderr, "Out of drafts!")
@@ -186,7 +188,7 @@ func main() {
 	opt := opt.Options{ErrorIfMissing: true}
 	db, err := leveldb.OpenFile(*dbPath, &opt)
 	if err != nil {
-		fmt.Print(err)
+		fmt.Fprint(os.Stderr, err)
 		os.Exit(-1)
 	}
 	defer db.Close()
@@ -194,11 +196,12 @@ func main() {
 	exportList := strings.Split(*exports, ",")
 	groundSet := parseInterfaces(importList)
 	targets := parseInterfaces(exportList)
-	groundBones := make(map[string][]*Entry)
-	for k, e := range groundSet {
-		arr := groundBones[BonePrefix(k)]
+	groundMeat := make(map[string][]*Entry)
+	for _, e := range groundSet {
+		markStr := e.MarkStr()
+		arr := groundMeat[markStr]
 		arr = append(arr, e)
-		groundBones[BonePrefix(k)] = arr
+		groundMeat[markStr] = arr
 	}
 
 	draft := new(Draft)
@@ -226,7 +229,7 @@ func main() {
 		}
 		pprof.StartCPUProfile(cpu)
 	}
-	winner := churn(db, groundBones, drafts, *laps)
+	winner := churn(db, groundMeat, drafts, *laps)
 	if *prof {
 		pprof.StopCPUProfile()
 		pprof.WriteHeapProfile(heap)
