@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"io"
 	"os"
 	"reflect"
@@ -237,17 +237,14 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 		return
 	}
 	es := make([]*Entry, 0)
-	start := []byte(pfix)
-	iter := db.NewIterator(nil)
+	var rang util.Range
+	rang.Start = []byte(pfix)
+	rang.Limit = append(rang.Start, byte(0xff))
+	iter := db.NewIterator(&rang, nil)
 	defer iter.Release()
-	end := append(start, byte(0xff))
-	iter.Seek(start)
 	found := false
-	for {
+	for iter.Next() {
 		key := iter.Key()
-		if bytes.Compare(key, end) > 0 {
-			break
-		}
 		value := iter.Value()
 		keyFact := new(Entry)
 		keyFact.Key = string(key)
@@ -263,9 +260,6 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 		}
 		if DEBUG {
 			fmt.Fprintf(os.Stderr, "Found: %s is %s\n", keyFact.Key, keyFact.Fact.Skin.Name)
-		}
-		if !iter.Next() {
-			break
 		}
 	}
 	if !found {
