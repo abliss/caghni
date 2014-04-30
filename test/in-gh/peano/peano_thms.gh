@@ -232,6 +232,8 @@ thm (alnex () ()
   x ph df-ex con2bii
 )
 
+export (ALNEX /peano/alnex.ghi (PROP PEANO_MIN) "")
+
 thm (19.8a () ()
   (-> ph (E. x ph))
   x (-. ph) ax-4 con2i

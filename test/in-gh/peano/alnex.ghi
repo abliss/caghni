@@ -1,0 +1,10 @@
+# A test interface containing just alnex.
+
+param (PROP /peano/prop.ghi () "")
+param (PEANO_MIN /peano/peano_min.ghi (PROP) "")
+
+tvar (wff ph)
+var (nat x)
+term (wff (E. x ph))
+
+stmt (alnex () () (<-> (A. x (-. ph)) (-. (E. x ph))))
