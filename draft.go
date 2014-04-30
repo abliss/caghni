@@ -162,7 +162,7 @@ func (this *Draft) AddEntry(mark Mark, entry *Entry) (that *Draft) {
 			return nil
 		}
 	}
-	that.Score += float64(delta) / 10.0
+	that.Score += float64(delta) * 10.0
 	return that
 }
 
