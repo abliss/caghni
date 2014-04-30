@@ -180,6 +180,7 @@ func churn(db *leveldb.DB, groundMeat map[string][]*Entry,
 }
 func main() {
 	dbPath := flag.String("d", "facts.leveldb", "path to facts.leveldb")
+	markQuery := flag.String("m", "", "for raw mark-to-json query")
 	imports := flag.String("i", "", "comma-separated list of .ghi imports")
 	exports := flag.String("e", "", "comma-separated list of .ghi exports")
 	prof := flag.Bool("prof", true, "do profiling?")
@@ -192,6 +193,16 @@ func main() {
 		os.Exit(-1)
 	}
 	defer db.Close()
+	if len(*markQuery) > 0 {
+		results := make(chan *Entry)
+		go GetFactsByPrefix(db, *markQuery, results)
+		fmt.Print("{\n")
+		for e := range results {
+			fmt.Printf("  %s: %s\n", jsonize(e.Key), e.Json)
+		}
+		fmt.Print("}\n")
+		return
+	}
 	importList := strings.Split(*imports, ",")
 	exportList := strings.Split(*exports, ",")
 	groundSet := parseInterfaces(importList)

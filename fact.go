@@ -197,6 +197,7 @@ type Entry struct {
 	Key  string
 	Fact Fact
 	mark *Mark
+	Json string
 }
 
 // BonePrefix returns that prefix of a Key or MarkStr which only pertains to the fact's Bone,
@@ -248,6 +249,7 @@ func GetFactsByPrefix(db *leveldb.DB, pfix string, out chan<- *Entry) {
 		value := iter.Value()
 		keyFact := new(Entry)
 		keyFact.Key = string(key)
+		keyFact.Json = string(value)
 		err := json.Unmarshal(value, &keyFact.Fact)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\nPfix:%v\nKey:%s\nValue: %s\n",
