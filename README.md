@@ -52,41 +52,32 @@ Each entity in the database represents a "Fact", which means a `stmt`, a `thm`, 
 In the database, this becomes the following object:
 
     {
-     Bone: {
-        Stmt:[0,[1,"V0.0",[2,"T1.0"]],[2,[3,"V0.0","T1.0"]]],
-        Hyps:[],
-        Free:[]
-     },
-     Meat:{
-         Terms:["<->","A.","-.","E."],
-         Kinds:["nat","wff"]
-     },
+     Core: [
+            [],                           // Hyps
+            [0,[1,0,[2,1]],[2,[3,0,1]]],  // Stmt
+            [],                           // Free
+            ["<->","A.","-.","E."]],      // Term
      Skin:{
          Name:"alnex",
          HypNames:[],
          Delimiters:[],            // will preserve whitespace and comments
          DepNames:["df-ex","con2bii"],
-         V:[["x"],[]],
-         T:[[],["ph"]]
+         VarNames:["x", "ph"],
      },
      Tree:{
          Cmd:"thm",
          Deps:[
-             [["[[0,[1,V0.0,T1.0],[2,[3,V0.0,[2,T1.0]]]],[],[]]"],
-              ["<->","E.","-.","A."],
-              ["nat","wff"]],
-             [["[[0,T0.0,[1,T0.1]],[[0,T0.1,[1,T0.0]]],[]]"]
-              ,["<->","-."],
-              ["wff"]]],
-         Proof:["V0.0","T1.0","Deps.0","Deps.1"],
-         Terms:["<->","A.","-.","E."],       // Meat.Terms is a prefix
-         Kinds:["nat","wff"]                 // Meat.Kinds is a prefix
+             [[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]],
+              ["<->","E.","-.","A."]],
+             [[[[0,1,[1,0]]],[0,0,[1,1]],[]],
+              ["<->","-."]]],
+         Proof:[0,1,"Deps.0","Deps.1"],
      }
     }
 
-The "Bone" is the actual skeleton of the Fact, and is fundamental to how it is used in a proof. The "Meat" represents the "arbitrary-but-consistent" name-choices: within a `.gh` file, all Facts must use the same Meat-values; but a substitution applied consistently throughout the file (e.g. &rarr; for `->`) is okay. The "Skin" comprises presentation-only content which doesn't affect the Fact's meaning or how it is used. The "Tree" captures the Fact's dependence on other Facts. (Terms and Kinds which are present in the proof of a thm, but not in its statement or hyps, are kept in the Tree in order to keep the Bone clean.)
+The "Core" is the actual skeleton of the Fact, and is fundamental to how it is used in a proof. A Term substitution applied consistently throughout the file (e.g. &rarr; for `->`) is okay. The "Skin" comprises presentation-only content which doesn't affect the Fact's meaning or how it is used. The "Tree" captures the Fact's dependence on other Facts. (Terms and Kinds which are present in the proof of a thm, but not in its statement or hyps, are kept in the Tree in order to keep the Bone clean.)
 
-Each element of the Tree.Deps array names a prerequisite for the Proof. However, it does not refer to a particular fact, but only to its Bone and Meat. (The current format of the reference, called a "Mark", is a somewhat-ugly compromise intended to allow for quick parsing, serialization, and database-lookup.)
+Each element of the Tree.Deps array names a prerequisite for the Proof. However, it does not refer to a particular fact, but only to its Core.
  
 Now we know that if we want to prove the Fact of `alnex`, we don't necessarily need `df-ex`, just some Fact (be it a thm, a defthm, or a stmt) with the same Bone, and a compatible Meat.
 
@@ -94,11 +85,10 @@ For example, in general/First-order_logic.gh, there is
 
     defthm (ThereExists formula (∃ x φ) () () (↔ (∃ x φ) (¬ (∀ x (¬ φ)))) ...)
 
-which creates a Fact with this Mark:
+which creates a Fact with this Core:
 
-    [["[[0,[1,V0.0,T1.0],[2,[3,V0.0,[2,T1.0]]]],[],[]]"],
-     [["↔","∃","¬","∀"],
-     ["object","formula"]]
+    [[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]],
+     ["↔","∃","¬","∀"]]
 
 Thus, as long as our query engine can consistently map ↔ to `<->` ,  "formula" to "wff", etc. throughout the file, this can be used just as well as df-ex. (Not yet implemented.)
 
