@@ -205,8 +205,8 @@ module.exports = function(obj) {
                     }
                 }
                 out += this.Tree.Proof.map(step).join(' ');
-                out += "\n)\n";
             }
+            out += "\n)\n";
             return out;
         },
         // The Mark is a representation of the Bone and Meat as [][]string.
