@@ -1,46 +1,55 @@
+(function(module) {
+    var CORE_HYPS = 0;
+    var CORE_STMT = 1;
+    var CORE_FREE = 2;
 
-// A Fact is an "interlingua" object representing a stmt, thm, or defthm. This
-// is designed for easy conversion to/from JSON.
-// For consistency, you must almways name things in the same order.
-// Once the hyps and stmt have been set, further calls to nameKind and
-// nameTerm will not affect the result of getKey().
-module.exports = function(obj) {
-    var hypsSet = false;
-    var stmtSet = false;
-    if (!obj) {
+    // A Fact is an "interlingua" object representing a stmt, thm, or
+    // defthm. This is designed for easy conversion to/from JSON.  For
+    // consistency, you must almways name things in the same order.  Once the
+    // hyps and stmt have been set, further calls to nameKind and nameTerm will
+    // not affect the result of getKey().
+    function Fact(obj) {
+
         // This is the Fact schema. Only these fields are allowed. Anything
         // undefined may only be set to a string.
-        obj = {
-            Bone: {
-                Stmt: [],
-                Hyps: [],
-                Free: undefined,
-            },
-            Meat: {
-                Terms: [],
-                Kinds: [],
-            },
+        var schema = {
+            Core: [
+                [], // Hyps
+                [], // Stmt
+                [], // Free
+            ],
             Skin: {
                 Name: undefined,
                 License: undefined,
                 HypNames: [],
-                Delimiters: [],
                 DepNames: [],
-                V: [],
-                T: [],
+                VarNames: [],
+                TermNames: [],
+                DefTerm: undefined,  // only for defthms
+                Delimiters: [],
             },
             Tree: {
                 Cmd: undefined,
                 Deps: [],
                 Proof: [],
-                Terms: [],  // Meat.Terms is a prefix
-                Kinds: [],  // Meat.Kinds is a prefix
-                Dkind: undefined,
-                Dsig: undefined,
             },
         };
+        function copyFromSchema(schemaObj, inputObj, outputObj) {
+            for (var k in schemaObj) {
+                if (inputObj && inputObj.hasOwnProperty(k)) {
+                    if ("object" === typeof schemaObj[k]) {
+                        outputObj[k] = schemaObj[k];
+                        copyFromSchema(schemaObj[k], inputObj[k], outputObj[k]);
+                    } else {
+                        outputObj[k] = inputObj[k];
+                    }
+                } else {
+                    outputObj[k] = schemaObj[k]
+                }
+            }
+        }
+        copyFromSchema(schema, obj, this);
     }
-
     // returns the index of s in the array. If necessary, pushes it on the end
     // and calls onAdd(n).
     function indexOf(arr, s, onAdd) {
@@ -53,178 +62,142 @@ module.exports = function(obj) {
         }
         return n;
     }
+
     // set up methods on the obj
-    obj.__proto__ = {
-        nameTerm: function(s) {
-            var num = indexOf(this.Tree.Terms, s);
-            if (!hypsSet || !stmtSet) {
-                this.Meat.Terms[num] = s
-            }
-            return num
-        },
-        nameHyp: function(s) {
-            return 'Hyps.' + indexOf(this.Skin.HypNames, s);
-        },
-        nameDep: function(s, fact) {
-            var that = this;
-            return 'Deps.' + indexOf(this.Skin.DepNames, s, function(n) {
-                that.Tree.Deps[n] = fact.getMark();
-            });
-        },
-        nameKind: function(s) {
-            var that = this;
-            var num = indexOf(this.Tree.Kinds, s, function(n) {
-                // New kind added; initialize v and t arrays
-                that.Skin.V[n] = [];
-                that.Skin.T[n] = [];
-            });
-            if (!hypsSet || !stmtSet) {
-                this.Meat.Kinds[num] = s
-            }
-            return num
-        },
-        nameVar: function(cmd, kind, s) {
-            var key = cmd[0].toUpperCase(); // "T" or "V"
-            var kindNum = this.nameKind(kind);
-            var varNum = indexOf(this.Skin[key][kindNum], s);
-            return key + kindNum + '.' + varNum;
-        },
-        setName: function(s) {
-            this.Skin.Name = s;
-            return this;
-        },
-        setCmd: function(s) {
-            this.Tree.Cmd = s;
-            return this;
-        },
-        setHyps: function(arr) {
-            if (hypsSet) {
-                throw new Error("Can't re-set hyps");
-            }
-            hypsSet = true;
-            this.Bone.Hyps = arr;
-            return this;
-        },
-        setFree: function(arr) {
-            this.Bone.Free = arr;
-            return this;
-        },
-        setDkind: function(n) {
-            this.Tree.Dkind = n;
-            return this;
-        },
-        setDsig: function(sexp) {
-            this.Tree.Dsig = sexp;
-            return this;
-        },
-        setProof: function(arr) {
-            this.Tree.Proof = arr;
-        },
-        setStmt: function(sexp) {
-            if (stmtSet) {
-                throw new Error("Can't re-set stmt");
-            }
-            stmtSet = true;
-            this.Bone.Stmt = sexp;
-        },
-        toGhilbert: function(getFact) {
-            var that = this;
-            function getVar(s) {
-                // TODO: insert var/tvar cmds
-                var key = s[0];
-                var kindNum = s.substring(1).split('.');
-                try {
-                    return that.Skin[key][kindNum[0]][kindNum[1]];
-                } catch (e) {
-                    throw new Error("Cannot getVar: " + s + "\n" +
-                                    JSON.stringify(that));
-                }
-            }
-            function stringify(sexp) {
-                if (sexp.shift) {
-                    var args = sexp.slice(1).map(stringify);
-                    args.unshift(that.Meat.Terms[sexp[0]]);
-                    return "(" + args.join(" ") + ")";
-                } else {
-                    return getVar(sexp);
-                }
-            }
-            var out = "";
-            out += this.Tree.Cmd
-            out += " ";
-            out += "(" + this.Skin.Name;
-            out += "\n  ";
-
-            if (typeof this.Tree.Dkind === 'number') {
-                out += this.Meat.Kinds[this.Tree.Dkind];
-                out += " ";
-                out += stringify(this.Tree.Dsig);
-                out += "\n";
-            }
-            
-            out += '(' + this.Bone.Free.map(function(fv) {
-                return '(' + fv.map(getVar).join(' ') + ')';
-            }).join(' ') + ')';
-            out += "\n  ";
-            out += "(";
-
-            for (var i = 0; i < this.Bone.Hyps.length; i++) {
-                if (this.Tree.Cmd != 'stmt') {
-                    out += this.Skin.HypNames[i];
-                    out += " ";
-                }
-                out += stringify(this.Bone.Hyps[i]);
-                if (i + 1 < this.Bone.Hyps.length) {
-                    out += "\n   ";
-                }
-            }
-            out += ")";
-            out += "\n  ";
-
-            out += stringify(this.Bone.Stmt);
-            out += "\n  ";
-
-            if (this.Tree.Proof) {
-                function step(s) {
-                    if (s.shift) {
-                        return stringify(s);
-                    } else if (s.match(/^Hyps/)) {
-                        return that.Skin.HypNames[s.substring(5)];
-                    } else if (s.match(/^Deps/)) {
-                        var depNum = s.substring(5);
-                        var depMark = that.Tree.Deps[depNum];
-                        var origDep = that.Skin.DepNames[depNum];
-                        var depName = getFact(depMark, origDep).Skin.Name;
-                        return depName;
-                    } else {
-                        var varName = getVar(s);
-                        if (!varName) {
-                            throw new Exception("bad proof step " + s);
-                        }
-                        return varName;
-                    }
-                }
-                out += this.Tree.Proof.map(step).join(' ');
-            }
-            out += "\n)\n";
-            return out;
-        },
-        // The Mark is a representation of the Bone and Meat as [][]string.
-        getMark: function() {
-            var bone = [this.Bone.Stmt, this.Bone.Hyps, this.Bone.Free];
-            var boneStr = JSON.stringify(bone).replace(/"/g,"");
-            return [[boneStr], this.Meat.Terms, this.Meat.Kinds];
-        },
-        // Returns an appropriate database key, specific to bone and meat.
-        getKey: function() {
-            var mark = this.getMark();
-            var boneStr = mark.shift()[0];
-            key = boneStr + ";" + JSON.stringify(mark);
-            if (Math.random() < 0.01) {
-                console.log("XXXX Key: " + key)
-            }
-            return key
-        }
+    Fact.prototype.nameTerm = function(s) {
+        return indexOf(this.Skin.TermNames, s);
     };
-    return obj;
-}
+    Fact.prototype.nameHyp = function(s) {
+        return 'Hyps.' + indexOf(this.Skin.HypNames, s);
+    };
+    Fact.prototype.nameDep = function(s, fact) {
+        var that = this;
+        return 'Deps.' + indexOf(this.Skin.DepNames, s, function(n) {
+            var termMap = fact.Skin.TermNames.map(function(term) {
+                return that.nameTerm(term);
+            });
+            that.Tree.Deps[n] = [fact.Core, termMap]; //TODO: should copy Core
+        });
+    };
+    Fact.prototype.nameVar = function(s) {
+        return indexOf(this.Skin.VarNames, s);
+    };
+    Fact.prototype.setName = function(s) {
+        this.Skin.Name = s;
+        return this;
+    };
+    Fact.prototype.setCmd = function(s) {
+        this.Tree.Cmd = s;
+        return this;
+    };
+    Fact.prototype.setHyps = function(arr) {
+        this.Core[CORE_HYPS] = arr;
+        return this;
+    };
+    Fact.prototype.setFree = function(arr) {
+        this.Core[CORE_FREE] = arr;
+        return this;
+    };
+    Fact.prototype.setDefTerm = function(term) {
+        this.Skin.DefTerm = term;
+        return this;
+    };
+    Fact.prototype.setProof = function(arr) {
+        this.Tree.Proof = arr;
+    };
+    Fact.prototype.setStmt = function(sexp) {
+        this.Core[CORE_STMT] = sexp;
+    };
+    Fact.prototype.toGhilbert = function(getFact) { //PICKUP
+        var that = this;
+        function getVar(s) {
+            // TODO: insert var/tvar cmds
+            var key = s[0];
+            var kindNum = s.substring(1).split('.');
+            try {
+                return that.Skin[key][kindNum[0]][kindNum[1]];
+            } catch (e) {
+                // TODO: add this to Skin
+                return s;
+            }
+        }
+        function stringify(sexp) {
+            if (sexp.shift) {
+                var args = sexp.slice(1).map(stringify);
+                args.unshift(that.Meat.Terms[sexp[0]]);
+                return "(" + args.join(" ") + ")";
+            } else {
+                return getVar(sexp);
+            }
+        }
+        var out = "";
+        out += this.Tree.Cmd
+        out += " ";
+        out += "(" + this.Skin.Name;
+        out += "\n  ";
+
+        if (typeof this.Tree.Dkind === 'number') {
+            out += this.Meat.Kinds[this.Tree.Dkind];
+            out += " ";
+            out += stringify(this.Tree.Dsig);
+            out += "\n";
+        }
+        
+        out += '(' + this.Bone.Free.map(function(fv) {
+            return '(' + fv.map(getVar).join(' ') + ')';
+        }).join(' ') + ')';
+        out += "\n  ";
+        out += "(";
+
+        for (var i = 0; i < this.Bone.Hyps.length; i++) {
+            if (this.Tree.Cmd != 'stmt') {
+                out += this.Skin.HypNames[i];
+                out += " ";
+            }
+            out += stringify(this.Bone.Hyps[i]);
+            if (i + 1 < this.Bone.Hyps.length) {
+                out += "\n   ";
+            }
+        }
+        out += ")";
+        out += "\n  ";
+
+        out += stringify(this.Bone.Stmt);
+        out += "\n  ";
+
+        if (this.Tree.Proof) {
+            function step(s) {
+                if (s.shift) {
+                    return stringify(s);
+                } else if (s.match(/^Hyps/)) {
+                    return that.Skin.HypNames[s.substring(5)];
+                } else if (s.match(/^Deps/)) {
+                    var depNum = s.substring(5);
+                    var depMark = that.Tree.Deps[depNum];
+                    var origDep = that.Skin.DepNames[depNum];
+                    var depName = getFact(depMark, origDep).Skin.Name;
+                    return depName;
+                } else {
+                    var varName = getVar(s);
+                    if (!varName) {
+                        throw new Exception("bad proof step " + s);
+                    }
+                    return varName;
+                }
+            }
+            out += this.Tree.Proof.map(step).join(' ');
+        }
+        out += "\n)\n";
+        return out;
+    };
+    // Returns an appropriate database key, specific to bone and meat.
+    Fact.prototype.getKey = function() {
+        var key = JSON.stringify(this.Core);
+        if (Math.random() < 0.01) {
+            console.log("XXXX Key: " + key)
+        }
+        return key;
+    };
+
+    module.exports = Fact;
+})(module);

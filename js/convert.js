@@ -4,10 +4,10 @@
  * Usage: ./convert.js indir outdir
  */
 
-var VERSION = 3;
+var VERSION = 4;
 /**
- * Version 3: Builds a LevelDB of all content (see README.md for
- * schema). Deps are [][]string instead of string. 
+ * Version 4: Builds a LevelDB of all content (see README.md for
+ * schema). Numeric Core instead of stringy Meat.
  */
 
 var Process = process;
@@ -192,7 +192,7 @@ ConvertVerifyCtx.prototype.populateFact = function(fact, fv, hyps, stmt, proof,
        case 'var':
        case 'tvar':
            var kind = sym[1];
-           return fact.nameVar(cmd, kind, sexp);
+           return fact.nameVar(sexp);
        case 'thm':
        case 'defthm':
        case 'stmt':
@@ -256,11 +256,8 @@ ConvertVerifyCtx.prototype.populateFact = function(fact, fv, hyps, stmt, proof,
         fact.setProof(proof.map(mapProofStep));
     }
 
-    if (dkind) { // defthms
-        fact.setDkind(fact.nameKind(dkind));
-        var newDsig = mapSexp(dsig);
-        newDsig[0] = fact.nameTerm(dsig[0]);
-        fact.setDsig(newDsig);
+    if (dsig) { // defthms
+        fact.setDefTerm(dsig[0]);
     }
 };
 
@@ -278,7 +275,7 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
         myHyps = this.lastProofChecked.hyps;
         delete this.lastProofChecked;
     }
-    var fact = Fact().setCmd(myKw).setName(label);
+    var fact = new Fact().setCmd(myKw).setName(label);
     this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
     this.factsByLabel[label] = fact;
     if (label == "nic-luk1") {
