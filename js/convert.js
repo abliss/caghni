@@ -28,7 +28,7 @@ if (args.length != 4) {
     process.exit(-1);
 }
 var inDir = args[2];
-var outDir = args[3]
+var outDir = args[3];
 
 try {
     Fs.mkdirSync(outDir);

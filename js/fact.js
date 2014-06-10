@@ -37,7 +37,8 @@
         function copyFromSchema(schemaObj, inputObj, outputObj) {
             for (var k in schemaObj) {
                 if (inputObj && inputObj.hasOwnProperty(k)) {
-                    if ("object" === typeof schemaObj[k]) {
+                    if ("object" === typeof schemaObj[k] &&
+                        schemaObj[k].length > 0) {
                         outputObj[k] = schemaObj[k];
                         copyFromSchema(schemaObj[k], inputObj[k], outputObj[k]);
                     } else {
@@ -108,23 +109,17 @@
     Fact.prototype.setStmt = function(sexp) {
         this.Core[CORE_STMT] = sexp;
     };
-    Fact.prototype.toGhilbert = function(getFact) { //PICKUP
+    Fact.prototype.toGhilbert = function(context, toGhilbertCb) {
+        console.log("# XXXX toGhilbert: " + this.Skin.Name);
         var that = this;
         function getVar(s) {
             // TODO: insert var/tvar cmds
-            var key = s[0];
-            var kindNum = s.substring(1).split('.');
-            try {
-                return that.Skin[key][kindNum[0]][kindNum[1]];
-            } catch (e) {
-                // TODO: add this to Skin
-                return s;
-            }
+            return that.Skin.VarNames[s];
         }
         function stringify(sexp) {
-            if (sexp.shift) {
+            if (sexp.slice) {
                 var args = sexp.slice(1).map(stringify);
-                args.unshift(that.Meat.Terms[sexp[0]]);
+                args.unshift(that.Skin.TermNames[sexp[0]]);
                 return "(" + args.join(" ") + ")";
             } else {
                 return getVar(sexp);
@@ -136,61 +131,92 @@
         out += "(" + this.Skin.Name;
         out += "\n  ";
 
-        if (typeof this.Tree.Dkind === 'number') {
-            out += this.Meat.Kinds[this.Tree.Dkind];
-            out += " ";
-            out += stringify(this.Tree.Dsig);
-            out += "\n";
+        if (this.Skin.DefTerm) {
+            out += "# TODO: XXX figure out defthms: " + this.Skin.Name;
         }
         
-        out += '(' + this.Bone.Free.map(function(fv) {
+        out += '(' + this.Core[CORE_FREE].map(function(fv) {
             return '(' + fv.map(getVar).join(' ') + ')';
         }).join(' ') + ')';
         out += "\n  ";
         out += "(";
 
-        for (var i = 0; i < this.Bone.Hyps.length; i++) {
+        for (var i = 0; i < this.Core[CORE_HYPS].length; i++) {
             if (this.Tree.Cmd != 'stmt') {
                 out += this.Skin.HypNames[i];
                 out += " ";
             }
-            out += stringify(this.Bone.Hyps[i]);
-            if (i + 1 < this.Bone.Hyps.length) {
+            out += stringify(this.Core[CORE_HYPS][i]);
+            if (i + 1 < this.Core[CORE_HYPS].length) {
                 out += "\n   ";
             }
         }
         out += ")";
         out += "\n  ";
 
-        out += stringify(this.Bone.Stmt);
+        out += stringify(this.Core[CORE_STMT]);
         out += "\n  ";
 
         if (this.Tree.Proof) {
+            var outstandingQueries = 0;
+            var finishedQuerying = false;
+            var depNames = [];
+            var mapped = [];
+            function finish() {
+                out += mapped.join(' ') + "\n)\n";
+                toGhilbertCb(null, out);
+            }
             function step(s) {
-                if (s.shift) {
+                if (!s.match) {
                     return stringify(s);
                 } else if (s.match(/^Hyps/)) {
                     return that.Skin.HypNames[s.substring(5)];
                 } else if (s.match(/^Deps/)) {
                     var depNum = s.substring(5);
-                    var depMark = that.Tree.Deps[depNum];
+                    var depCore = that.Tree.Deps[depNum][0];
+                    var depMap = that.Tree.Deps[depNum][1]; //XXX
                     var origDep = that.Skin.DepNames[depNum];
-                    var depName = getFact(depMark, origDep).Skin.Name;
-                    return depName;
-                } else {
-                    var varName = getVar(s);
-                    if (!varName) {
-                        throw new Exception("bad proof step " + s);
+                    if (!depNames[depNum]) {
+                        depNames[depNum] = {toString: function() {
+                            return this.name || "WTF";
+                        }}
+                        outstandingQueries++;
+                        var hint = {name:origDep};
+                        console.log("# XXXX Gh " +
+                                    that.Skin.Name + " wants " +
+                                    hint.name);
+
+                        context.requestFact(
+                            depCore, hint,
+                            function(err, fact) {
+                                if (err) {
+                                    toGhilbertCb(err, null);
+                                } else {
+                                    depNames[depNum].name = fact.Skin.Name;
+                                    outstandingQueries--;
+                                    console.log("# XXXX Gh " +
+                                                that.Skin.Name +
+                                                " got " + fact.Skin.Name +
+                                                " wants " + outstandingQueries);
+                                    if (finishedQuerying &&
+                                        (outstandingQueries == 0)) {
+                                        finish();
+                                    }
+                                }
+                            });
                     }
-                    return varName;
+                    var depName = origDep;
+                    return depName;
                 }
             }
-            out += this.Tree.Proof.map(step).join(' ');
+            mapped = that.Tree.Proof.map(step);
+            finishedQuerying = true;
+            if (outstandingQueries == 0) {
+                finish();
+            }
         }
-        out += "\n)\n";
-        return out;
     };
-    // Returns an appropriate database key, specific to bone and meat.
+    // Returns an appropriate database key, specific to the core
     Fact.prototype.getKey = function() {
         var key = JSON.stringify(this.Core);
         if (Math.random() < 0.01) {
