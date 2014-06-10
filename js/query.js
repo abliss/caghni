@@ -18,6 +18,16 @@ var factsDb = Level(Path.join(outDir, 'facts.leveldb'));
 
 // Welcome to callback HELL! Muhuhahaha. Ha.
 
+function score(fact, hint) {
+    var n = 0; 
+    if (fact.Skin.Name == hint.name) {
+        n += 10;
+    }
+    if ((fact.Tree.Cmd == "stmt") === (hint.name.match(/^ax-/) ? true : false)) {
+        n += 1;
+    }
+    return n;
+}
 var context = {};
 context.requestFact = function(core, hint, cb) {
     var oldHit = context.map[hint.name];
@@ -58,18 +68,8 @@ context.requestFact = function(core, hint, cb) {
         on('data', function(data) {
             var fact = new Fact(JSON.parse(data.value));
             //console.log("Queried " + hint.name + " got " + fact.Skin.Name);
-            if (!best) {
+            if (!best || (score(fact, hint) > score(best, hint))) {
                 best = fact;
-            } else if (fact.Skin.Name == hint.name) {
-                if ((best.Skin.Name != hint.name) ||
-                    ((fact.Tree.Cmd != 'stmt') &&
-                     (best.Tree.Cmd == 'stmt'))) {
-                    best = fact;
-                }
-            } else if (fact.Skin.Name == hint.name) {
-                console.log("XXXX DUPLICATE! " + hint.name +
-                            "\n  fact=" + JSON.stringify(fact) +
-                            "\n  best=" + JSON.stringify(best));
             }
         }).
         on('end', function() {
