@@ -53,6 +53,7 @@ context.requestFact = function(core, hint, cb) {
             // TODO: The following is an easy, but stupidly-slow way.
             oldHit.fact.toGhilbert(context, function(err, out) {
                 if (err) {
+                    err += "\n  Moving to front: " + oldHit.fact.Skin.Name;
                     cb(err, null);
                 }
             });
@@ -65,6 +66,7 @@ context.requestFact = function(core, hint, cb) {
     var best;
     factsDb.createReadStream(opts).
         on('error', function(err) {
+            err += "\n  Reading DB for " + hint;
             cb(err, null);
         }).
         on('close', function() {
@@ -93,6 +95,7 @@ context.requestFact = function(core, hint, cb) {
                                    prev:null,
                                    next:null};
                     context.map[best.fact.Skin.Name] = {fact: best.fact};
+                    context.pendingTheorems[best.key] = true;
                     var isThm = best.fact.Tree.Cmd !== 'stmt';
                     if (isThm) {
                         context.map[best.fact.Skin.Name].node = newNode;
@@ -107,13 +110,11 @@ context.requestFact = function(core, hint, cb) {
                                 best.fact.Skin.Name +
                                 " as " + best.fact.Tree.Cmd);
 
-                    context.pendingTheorems[best.key] = true;
                     best.fact.toGhilbert(context, function(err, out) {
                         if (err) {
-                            console.log("# XXXX Can't get it");
+                            err += "\n  Ghilbertizing " + best.fact.Skin.Name;
                             cb(err, null);
                         } else {
-                            console.log("# XXXX Finished " + best.fact.Skin.Name);
                             context.pendingTheorems[best.key] = false;
                             newNode.text = out;
                             cb(null, best.fact);
@@ -121,7 +122,7 @@ context.requestFact = function(core, hint, cb) {
                     });
                 }
             } else {
-                cb("Not found!\n  Query=" + JSON.stringify(opts), null);
+                cb("Not found!\n  Query=" + JSON.stringify(hint), null);
             }
         });    
 };
@@ -135,7 +136,7 @@ context.iface = {
     dll: null,
 }
 
-factsDb.get("[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];c2219e8060af811813ae76581d0034e03f2e8cc1", function(err, data) {
+factsDb.get("[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", function(err, data) {
     if (err) {
         console.log(err);
     } else {
