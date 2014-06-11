@@ -25,11 +25,11 @@
                 DepNames: [],
                 VarNames: [],
                 TermNames: [],
-                DefTerm: undefined,  // only for defthms
                 Delimiters: [],
             },
             Tree: {
                 Cmd: undefined,
+                Definiendum: [],  // only for defthms
                 Deps: [],
                 Proof: [],
             },
@@ -99,8 +99,8 @@
         this.Core[CORE_FREE] = arr;
         return this;
     };
-    Fact.prototype.setDefTerm = function(term) {
-        this.Skin.DefTerm = term;
+    Fact.prototype.setDefiniendum = function(exp) {
+        this.Tree.Definiendum = exp;
         return this;
     };
     Fact.prototype.setProof = function(arr) {
@@ -131,8 +131,8 @@
         out += "(" + this.Skin.Name;
         out += "\n  ";
 
-        if (this.Skin.DefTerm) {
-            out += "# TODO: XXX figure out defthms: " + this.Skin.Name;
+        if (this.Tree.Cmd == 'defthm') {
+            out += stringify(this.Tree.Definiendum) + "\n  ";
         }
         
         out += '(' + this.Core[CORE_FREE].map(function(fv) {

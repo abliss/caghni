@@ -29,6 +29,7 @@ function score(fact, hint) {
     return n;
 }
 var context = {};
+context.pendingTheorems = {};
 context.requestFact = function(core, hint, cb) {
     var oldHit = context.map[hint.name];
     if (oldHit) {
@@ -48,6 +49,13 @@ context.requestFact = function(core, hint, cb) {
             oldHit.node.next = oldHead;
             oldHead.prev = oldHit.node;
             context.proofs.dll = oldHit.node;
+            // we need to pull all of its dependencies to the front.
+            // TODO: The following is an easy, but stupidly-slow way.
+            oldHit.fact.toGhilbert(context, function(err, out) {
+                if (err) {
+                    cb(err, null);
+                }
+            });
         }
         cb(null, oldHit.fact);
         return;
@@ -66,25 +74,28 @@ context.requestFact = function(core, hint, cb) {
             */
         }).
         on('data', function(data) {
-            var fact = new Fact(JSON.parse(data.value));
-            //console.log("Queried " + hint.name + " got " + fact.Skin.Name);
-            if (!best || (score(fact, hint) > score(best, hint))) {
-                best = fact;
+            // Avoid loops
+            if (!context.pendingTheorems[data.key]) {
+                var fact = new Fact(JSON.parse(data.value));
+                //console.log("Queried " + hint.name + " got " + fact.Skin.Name);
+                if (!best || (score(fact, hint) > score(best.fact, hint))) {
+                    best = {key: data.key, fact: fact};
+                }
             }
         }).
         on('end', function() {
             if (best) {
-                if (context.map[best.Skin.Name]) {
+                if (context.map[best.fact.Skin.Name]) { //XXX key
                     console.log("# XXXX Already got it");
-                    cb(null, best);
+                    cb(null, best.fact);
                 } else {
                     var newNode = {text:null,
                                    prev:null,
                                    next:null};
-                    context.map[best.Skin.Name] = {fact: best};
-                    var isThm = best.Tree.Cmd !== 'stmt';
+                    context.map[best.fact.Skin.Name] = {fact: best.fact};
+                    var isThm = best.fact.Tree.Cmd !== 'stmt';
                     if (isThm) {
-                        context.map[best.Skin.Name].node = newNode;
+                        context.map[best.fact.Skin.Name].node = newNode;
                     }
                     var where = isThm ? context.proofs : context.iface;
                     newNode.next = where.dll;
@@ -93,16 +104,19 @@ context.requestFact = function(core, hint, cb) {
                     }
                     where.dll = newNode;
                     console.log("# XXXX Getting ghilbert for " +
-                                best.Skin.Name +
-                                " as " + best.Tree.Cmd);
-                    best.toGhilbert(context, function(err, out) {
+                                best.fact.Skin.Name +
+                                " as " + best.fact.Tree.Cmd);
+
+                    context.pendingTheorems[best.key] = true;
+                    best.fact.toGhilbert(context, function(err, out) {
                         if (err) {
                             console.log("# XXXX Can't get it");
                             cb(err, null);
                         } else {
-                            console.log("# XXXX Finished " + best.Skin.Name);
+                            console.log("# XXXX Finished " + best.fact.Skin.Name);
+                            context.pendingTheorems[best.key] = false;
                             newNode.text = out;
-                            cb(null, best);
+                            cb(null, best.fact);
                         }
                     });
                 }
@@ -121,7 +135,7 @@ context.iface = {
     dll: null,
 }
 
-factsDb.get("[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];752fd06a4648a2f576d2e65961f7a2b3dfac09a7", function(err, data) {
+factsDb.get("[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];c2219e8060af811813ae76581d0034e03f2e8cc1", function(err, data) {
     if (err) {
         console.log(err);
     } else {

@@ -257,7 +257,7 @@ ConvertVerifyCtx.prototype.populateFact = function(fact, fv, hyps, stmt, proof,
     }
 
     if (dsig) { // defthms
-        fact.setDefTerm(dsig[0]);
+        fact.setDefiniendum(mapSexp(dsig));
     }
 };
 
