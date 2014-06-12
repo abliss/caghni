@@ -26,13 +26,15 @@ function score(fact, hint) {
     if ((fact.Tree.Cmd == "stmt") === (hint.name.match(/^ax-/) ? true : false)) {
         n += 1;
     }
-    if (fact.Tree.Cmd != 'defthm') {
-        n += 100;
+    if (context.axiomTerms[fact.getNewTerm()]) {
+        n -= 100;
     }
+
     return n;
 }
 var context = {};
 context.pendingTheorems = {};
+context.axiomTerms = {"-.": 1, "->": 1}; //XXX
 context.requestFact = function(core, hint, cb) {
     var oldHit = context.map[hint.name];
     if (oldHit) {

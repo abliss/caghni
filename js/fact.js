@@ -209,8 +209,7 @@
                                 }
                             });
                     }
-                    var depName = origDep;
-                    return depName;
+                    return depNames[depNum];
                 }
             }
             mapped = that.Tree.Proof.map(step);
@@ -219,6 +218,12 @@
                 finish();
             }
         }
+    };
+    Fact.prototype.getNewTerm = function() {
+        if (this.Tree.Cmd != 'defthm') {
+            return null;
+        }
+        return this.Skin.TermNames[this.Tree.Definiendum[0]];
     };
     // Returns an appropriate database key, specific to the core
     Fact.prototype.getKey = function() {
