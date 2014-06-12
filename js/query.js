@@ -77,12 +77,10 @@ context.requestFact = function(core, hint, cb) {
         }).
         on('data', function(data) {
             // Avoid loops
-            if (!context.pendingTheorems[data.key]) {
-                var fact = new Fact(JSON.parse(data.value));
-                //console.log("Queried " + hint.name + " got " + fact.Skin.Name);
-                if (!best || (score(fact, hint) > score(best.fact, hint))) {
-                    best = {key: data.key, fact: fact};
-                }
+            var fact = new Fact(JSON.parse(data.value));
+            //console.log("Queried " + hint.name + " got " + fact.Skin.Name);
+            if (!best || (score(fact, hint) > score(best.fact, hint))) {
+                best = {key: data.key, fact: fact};
             }
         }).
         on('end', function() {
@@ -115,6 +113,7 @@ context.requestFact = function(core, hint, cb) {
                             err += "\n  Ghilbertizing " + best.fact.Skin.Name;
                             cb(err, null);
                         } else {
+                            console.log("Finished with " + best.fact.Skin.Name + " = " + best.key);
                             context.pendingTheorems[best.key] = false;
                             newNode.text = out;
                             cb(null, best.fact);

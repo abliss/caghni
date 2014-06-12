@@ -132,6 +132,7 @@
         out += "\n  ";
 
         if (this.Tree.Cmd == 'defthm') {
+            out += " k " + "\n"; // TODO: kinds
             out += stringify(this.Tree.Definiendum) + "\n  ";
         }
         
