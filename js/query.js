@@ -26,6 +26,9 @@ function score(fact, hint) {
     if ((fact.Tree.Cmd == "stmt") === (hint.name.match(/^ax-/) ? true : false)) {
         n += 1;
     }
+    if (fact.Tree.Cmd != 'defthm') {
+        n += 100;
+    }
     return n;
 }
 var context = {};
@@ -33,9 +36,9 @@ context.pendingTheorems = {};
 context.requestFact = function(core, hint, cb) {
     var oldHit = context.map[hint.name];
     if (oldHit) {
-        console.log("Requeried " + hint.name);
-        // move to front of dll
-        if (oldHit.node) {
+        //console.log("Requeried " + hint.name);
+        // move to front of dll if it's not there already.
+        if ((oldHit.node) && (oldHit.node !== context.proofs.dll)) {
             var p = oldHit.node.prev;
             var q = oldHit.node.next;
             if (p) {
@@ -86,7 +89,7 @@ context.requestFact = function(core, hint, cb) {
         on('end', function() {
             if (best) {
                 if (context.map[best.fact.Skin.Name]) { //XXX key
-                    console.log("# XXXX Already got it");
+                    //console.log("# XXXX Already got it");
                     cb(null, best.fact);
                 } else {
                     var newNode = {text:null,
@@ -104,10 +107,11 @@ context.requestFact = function(core, hint, cb) {
                         where.dll.prev = newNode;
                     }
                     where.dll = newNode;
+/*
                     console.log("# XXXX Getting ghilbert for " +
                                 best.fact.Skin.Name +
                                 " as " + best.fact.Tree.Cmd);
-
+*/
                     best.fact.toGhilbert(context, function(err, out) {
                         if (err) {
                             err += "\n  Ghilbertizing " + best.fact.Skin.Name;
@@ -161,9 +165,14 @@ factsDb.get("[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae3
 
 
 function logDll(node) {
-    if (node) {
+    var seen = {};
+    while (node) {
+        if (seen[node.text]) {
+            throw new Error("List is cyclic! " + node.text);
+        }
+        seen[node.text] = true;
         console.log("# Text:\n" + node.text);
-        logDll(node.next);
+        node = node.next;
     }
 }
 function finish() {

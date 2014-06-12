@@ -110,7 +110,7 @@
         this.Core[CORE_STMT] = sexp;
     };
     Fact.prototype.toGhilbert = function(context, toGhilbertCb) {
-        console.log("# XXXX toGhilbert: " + this.Skin.Name);
+        //console.log("# XXXX toGhilbert: " + this.Skin.Name);
         var that = this;
         function getVar(s) {
             // TODO: insert var/tvar cmds
@@ -183,10 +183,11 @@
                         }}
                         outstandingQueries++;
                         var hint = {name:origDep};
+                        /*
                         console.log("# XXXX Gh " +
                                     that.Skin.Name + " wants " +
                                     hint.name);
-
+*/
                         context.requestFact(
                             depCore, hint,
                             function(err, fact) {
@@ -195,10 +196,12 @@
                                 } else {
                                     depNames[depNum].name = fact.Skin.Name;
                                     outstandingQueries--;
+/*
                                     console.log("# XXXX Gh " +
                                                 that.Skin.Name +
                                                 " got " + fact.Skin.Name +
                                                 " wants " + outstandingQueries);
+*/
                                     if (finishedQuerying &&
                                         (outstandingQueries == 0)) {
                                         finish();
