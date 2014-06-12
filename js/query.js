@@ -8,9 +8,8 @@ var Fact = require('./fact.js');
 var Level = require('level');
 var Path = require('path');
 var Process = process;
+var Fs = require('fs');
 
-
-// putting [[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];752fd06a4648a2f576d2e65961f7a2b3dfac09a7 => {"Core":[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]],"Skin":{"Name":"nic-luk1","HypNames":[],"DepNames":["nic-dfim","nic-bi2","nic-ax","nic-isw2","nic-idel","nic-bi1","nic-idbl","nic-imp","nic-swap","nic-ich","nic-mp"],"VarNames":["ph","ps","ch","ta"],"TermNames":["->","-/\\","<->","/\\","-.","\\/"],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[[[[],[0,[0,[0,0,[0,1,1]],[1,0,1]],[0,[0,[0,0,[0,1,1]],[0,0,[0,1,1]]],[0,[1,0,1],[1,0,1]]]],[]],[1,0,2,3,4,5]],[[[[0,[0,1,0],[0,[0,1,1],[0,0,0]]]],[0,0,[0,1,1]],[]],[1,2,0,3,4]],[[[],[0,[0,0,[0,1,2]],[0,[0,3,[0,3,3]],[0,[0,4,1],[0,[0,0,4],[0,0,4]]]]],[]],[1,2,0,3,4]],[[[[0,0,[0,2,1]]],[0,0,[0,1,2]],[]],[1,2,0,3,4]],[[[[0,0,[0,1,2]]],[0,0,[0,1,1]],[]],[1,2,0,3,4]],[[[[0,[0,0,1],[0,[0,0,0],[0,1,1]]]],[0,0,[0,1,1]],[]],[1,2,0,3,4]],[[[[0,1,[0,0,0]]],[0,[0,0,0],[0,[0,1,1],[0,1,1]]],[]],[1,2,0,3,4]],[[[[0,2,[0,1,3]]],[0,[0,0,1],[0,[0,2,0],[0,2,0]]],[]],[1,2,0,3,4]],[[[],[0,[0,0,1],[0,[0,1,0],[0,1,0]]],[]],[1,2,0,3,4]],[[[[0,0,[0,2,2]],[0,2,[0,1,1]]],[0,0,[0,1,1]],[]],[1,2,0,3,4]],[[[1,[0,1,[0,2,0]]],0,[]],[1,2,0,3,4]]],"Proof":[0,1,"Deps.0","Deps.1",0,1,1,3,[1,2,2],"Deps.2","Deps.3","Deps.4",0,2,"Deps.0","Deps.5","Deps.6",[1,[1,2,2],1],"Deps.7",1,2,"Deps.0","Deps.1",1,[1,2,2],"Deps.8","Deps.9",[1,[0,0,2],[0,0,2]],"Deps.7","Deps.9","Deps.9",[0,1,2],[0,0,2],"Deps.0","Deps.5","Deps.9","Deps.9",[0,0,1],[0,[0,1,2],[0,0,2]],"Deps.0","Deps.5","Deps.10"]}}
 
 var args = Process.argv;
 var outDir = args[2];
@@ -32,6 +31,33 @@ function score(fact, hint) {
 
     return n;
 }
+
+// Infer term arities. TODO: should be more strict here.
+function inferTerms(fact) {
+    function recurse(exp) {
+        if (exp.slice) {
+            var termName = fact.Skin.TermNames[exp[0]];
+            if (!context.iface.terms[termName]) {
+                var t = "term (k (" + termName;
+                var arity = exp.length - 1;
+                for (var k in context.iface.vars) {
+                    if (context.iface.vars.hasOwnProperty(k)) {
+                        if (arity == 0) {
+                            break;
+                        }
+                        t += " " + k;
+                        arity--;
+                    }            
+                }
+                t += "))\n";
+                context.iface.terms[termName] = t;
+            }
+            exp.slice(1).forEach(recurse);
+        }
+    }
+    recurse(fact.Core[Fact.CORE_STMT]);
+}
+
 var context = {};
 context.pendingTheorems = {};
 context.axiomTerms = {"-.": 1, "->": 1}; //XXX
@@ -104,6 +130,16 @@ context.requestFact = function(core, hint, cb) {
                         context.map[best.fact.Skin.Name].node = newNode;
                     }
                     var where = isThm ? context.proofs : context.iface;
+                    // add vars (and terms?)
+                    best.fact.Skin.VarNames.forEach(function(v) {
+                        // TODO: kinds
+                        // TODO: t/v
+                        where.vars[v] = "tvar (k " + v + ")\n";
+                        
+                    });
+                    if (!isThm) {
+                        inferTerms(best.fact);
+                    }
                     newNode.next = where.dll;
                     if (where.dll) {
                         where.dll.prev = newNode;
@@ -135,10 +171,13 @@ context.requestFact = function(core, hint, cb) {
 context.map = {};
 context.proofs = {
     dll: null,
+    vars:{},
 }
 
 context.iface = {
     dll: null,
+    vars:{},
+    terms: {},
 }
 
 factsDb.get("[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", function(err, data) {
@@ -166,20 +205,36 @@ factsDb.get("[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae3
 });
 
 
-function logDll(node) {
+function concatDll(node) {
+    var out = "";
     var seen = {};
     while (node) {
         if (seen[node.text]) {
-            throw new Error("List is cyclic! " + node.text);
+            throw new Error("List is cyclic! " + node.text +
+                            "\n AFTER \n" + out);
         }
         seen[node.text] = true;
-        console.log("# Text:\n" + node.text);
+        out += node.text
         node = node.next;
     }
+    return out;
 }
 function finish() {
-    console.log("#### IFACE");
-    logDll(context.iface.dll);
-    console.log("#### PROOFS");
-    logDll(context.proofs.dll);
+    var str = "";
+    str += "kind (k)\n"; // TODO: kind
+    function appendVals(obj) {
+        for (var k in obj) if (obj.hasOwnProperty(k)) {
+            str += obj[k];
+        }
+    }
+    appendVals(context.iface.vars);
+    appendVals(context.iface.terms);
+    str += concatDll(context.iface.dll);
+    Fs.writeFileSync("tmp.ghi", str);
+
+    str = "";
+    str += 'import (TMP tmp.ghi () "")\n';
+    appendVals(context.proofs.vars);
+    str += concatDll(context.proofs.dll);
+    Fs.writeFileSync("tmp.gh", str);
 }

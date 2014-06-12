@@ -1,8 +1,4 @@
 (function(module) {
-    var CORE_HYPS = 0;
-    var CORE_STMT = 1;
-    var CORE_FREE = 2;
-
     // A Fact is an "interlingua" object representing a stmt, thm, or
     // defthm. This is designed for easy conversion to/from JSON.  For
     // consistency, you must almways name things in the same order.  Once the
@@ -51,6 +47,10 @@
         }
         copyFromSchema(schema, obj, this);
     }
+    Fact.CORE_HYPS = 0;
+    Fact.CORE_STMT = 1;
+    Fact.CORE_FREE = 2;
+
     // returns the index of s in the array. If necessary, pushes it on the end
     // and calls onAdd(n).
     function indexOf(arr, s, onAdd) {
@@ -92,11 +92,11 @@
         return this;
     };
     Fact.prototype.setHyps = function(arr) {
-        this.Core[CORE_HYPS] = arr;
+        this.Core[Fact.CORE_HYPS] = arr;
         return this;
     };
     Fact.prototype.setFree = function(arr) {
-        this.Core[CORE_FREE] = arr;
+        this.Core[Fact.CORE_FREE] = arr;
         return this;
     };
     Fact.prototype.setDefiniendum = function(exp) {
@@ -107,7 +107,7 @@
         this.Tree.Proof = arr;
     };
     Fact.prototype.setStmt = function(sexp) {
-        this.Core[CORE_STMT] = sexp;
+        this.Core[Fact.CORE_STMT] = sexp;
     };
     Fact.prototype.toGhilbert = function(context, toGhilbertCb) {
         //console.log("# XXXX toGhilbert: " + this.Skin.Name);
@@ -136,26 +136,26 @@
             out += stringify(this.Tree.Definiendum) + "\n  ";
         }
         
-        out += '(' + this.Core[CORE_FREE].map(function(fv) {
+        out += '(' + this.Core[Fact.CORE_FREE].map(function(fv) {
             return '(' + fv.map(getVar).join(' ') + ')';
         }).join(' ') + ')';
         out += "\n  ";
         out += "(";
 
-        for (var i = 0; i < this.Core[CORE_HYPS].length; i++) {
+        for (var i = 0; i < this.Core[Fact.CORE_HYPS].length; i++) {
             if (this.Tree.Cmd != 'stmt') {
                 out += this.Skin.HypNames[i];
                 out += " ";
             }
-            out += stringify(this.Core[CORE_HYPS][i]);
-            if (i + 1 < this.Core[CORE_HYPS].length) {
+            out += stringify(this.Core[Fact.CORE_HYPS][i]);
+            if (i + 1 < this.Core[Fact.CORE_HYPS].length) {
                 out += "\n   ";
             }
         }
         out += ")";
         out += "\n  ";
 
-        out += stringify(this.Core[CORE_STMT]);
+        out += stringify(this.Core[Fact.CORE_STMT]);
         out += "\n  ";
 
         if (this.Tree.Proof) {
