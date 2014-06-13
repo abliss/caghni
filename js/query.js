@@ -62,6 +62,8 @@ var context = {};
 context.pendingTheorems = {};
 context.axiomTerms = {"-.": 1, "->": 1}; //XXX
 context.requestFact = function(core, hint, cb) {
+    // TODO: keying this by hint.name assumes no two different facts have the
+    // same name.
     var oldHit = context.map[hint.name];
     if (oldHit) {
         //console.log("Requeried " + hint.name);
@@ -180,30 +182,6 @@ context.iface = {
     terms: {},
 }
 
-factsDb.get("[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", function(err, data) {
-    if (err) {
-        console.log(err);
-    } else {
-        var fact = new Fact(JSON.parse(data));
-        var node = {
-            text:null,
-            next:null,
-            prev:null
-        }
-        context.proofs.dll = node;
-        context.map[fact.Skin.Name] = {fact:fact, node:node};
-        fact.toGhilbert(context, function(err, out) {
-            if (err) {
-                console.log("ERROR: " + err);
-                Process.exit(-1);
-            } else {
-                node.text = out;
-                finish();
-            }
-        });
-    }
-});
-
 
 function concatDll(node) {
     var out = "";
@@ -237,4 +215,44 @@ function finish() {
     appendVals(context.proofs.vars);
     str += concatDll(context.proofs.dll);
     Fs.writeFileSync("tmp.gh", str);
+}
+
+if (true) {
+    factsDb.get(
+        // "[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", //nic-luk1
+        "[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
+                function(err, data) {
+        if (err) {
+            console.log(err);
+        } else {
+            var fact = new Fact(JSON.parse(data));
+            var node = {
+                text:null,
+                next:null,
+                prev:null
+            }
+            context.proofs.dll = node;
+            context.map[fact.Skin.Name] = {fact:fact, node:node};
+            fact.toGhilbert(context, function(err, out) {
+                if (err) {
+                    console.log("ERROR: " + err);
+                    Process.exit(-1);
+                } else {
+                    node.text = out;
+                    finish();
+                }
+            });
+        }
+    });
+
+} else {
+    var core = "[[],[0,[1,0,[1,1,[0,[2,";
+    var opts = {start:core};
+    opts.end = opts.start + "\xff";
+    var best;
+    factsDb.createReadStream(opts).
+        on('data', function(data) {
+            console.log(data)
+        });
+
 }
