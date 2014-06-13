@@ -28,11 +28,28 @@ function score(fact, hint) {
     if (context.axiomTerms[fact.getNewTerm()]) {
         n -= 100;
     }
-
+    if (JSON.stringify(fact.Skin.TermNames) ===
+        JSON.stringify(hint.terms)) {
+        n += 1000;
+    }
     return n;
 }
 
 // Infer term arities. TODO: should be more strict here.
+function InferredTerm(name, arity) {
+    this.name = name;
+    this.arity = arity;
+    this.isBinding = [];
+    this.kind = "k"; // TODO:kinds
+}
+InferredTerm.prototype.toString = function() {
+    var v = "";
+    var t = "term (" + this.kind + " (" + this.name;
+    for (var i = 0; i < this.arity; i++) {
+        var isBinding = this.isBinding[i];
+        //PICKUP
+    }
+}
 function inferTerms(fact) {
     function recurse(exp) {
         if (exp.slice) {
@@ -220,7 +237,8 @@ function finish() {
 if (true) {
     factsDb.get(
         // "[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", //nic-luk1
-        "[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
+        // "[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
+        '[[],[0,[1,0,1],[1,1,0]],[]];a3d0702f50d44f57e382db0b977c52e3df6c2a50', //addcom
                 function(err, data) {
         if (err) {
             console.log(err);
@@ -246,7 +264,7 @@ if (true) {
     });
 
 } else {
-    var core = "[[],[0,[1,0,[1,1,[0,[2,";
+    var core = "[[],[0,[1,0,1],[1,1,0]";
     var opts = {start:core};
     opts.end = opts.start + "\xff";
     var best;

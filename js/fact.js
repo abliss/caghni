@@ -183,6 +183,8 @@
                         }}
                         outstandingQueries++;
                         var hint = {name:origDep};
+                        hint.terms = depMap.map(function(n) {
+                            return that.Skin.TermNames[n];});
                         /*
                         console.log("# XXXX Gh " +
                                     that.Skin.Name + " wants " +
