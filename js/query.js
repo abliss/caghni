@@ -35,41 +35,99 @@ function score(fact, hint) {
     return n;
 }
 
-// Infer term arities. TODO: should be more strict here.
+// Tool for inferring term declarations.
+// Each term declaration will have its own set of variabled declared.
+// If the ith input to a term is *ever* another term, we declare it as termvar.
+// If it is never a term but always a variable, we declare it as a binding var.
 function InferredTerm(name, arity) {
     this.name = name;
     this.arity = arity;
+    this.isTerm = [];
     this.isBinding = [];
     this.kind = "k"; // TODO:kinds
 }
 InferredTerm.prototype.toString = function() {
-    var v = "";
+    var v = "\n";
     var t = "term (" + this.kind + " (" + this.name;
     for (var i = 0; i < this.arity; i++) {
-        var isBinding = this.isBinding[i];
-        //PICKUP
+        var varName = this.name + "_" + i;
+        v += this.isTerm[i] ? "tvar" : " var";
+        v += " (k "; // TODO: kinds
+        v += varName;
+        v += ")\n";
+        t += " " + varName;
     }
+    t += "))\n";
+    return v + t;
 }
 function inferTerms(fact) {
+    var bindingVars = {};
+    // Collect binding vars from the fact's Free clause.
+    fact.Core[Fact.CORE_FREE].forEach(function(free) {
+        //In free variable constraint context clause, the first variable must be
+        //a term variable and the remaining variables must be binding variables.
+        free.slice(1).forEach(function(bv) {
+            bindingVars[fact.Skin.VarNames[bv]] = 1;
+        });
+        // TODO: there is a possible problem here if one Fact considers a var
+        // binding and another considers it term:
+        // Collision of separately-defined vars.
+        
+    });
     function recurse(exp) {
-        if (exp.slice) {
-            var termName = fact.Skin.TermNames[exp[0]];
-            if (!context.iface.terms[termName]) {
-                var t = "term (k (" + termName;
-                var arity = exp.length - 1;
-                for (var k in context.iface.vars) {
-                    if (context.iface.vars.hasOwnProperty(k)) {
-                        if (arity == 0) {
-                            break;
-                        }
-                        t += " " + k;
-                        arity--;
-                    }            
-                }
-                t += "))\n";
-                context.iface.terms[termName] = t;
+        if (!Array.isArray(exp)) {
+            return;
+        }
+        var termName = fact.Skin.TermNames[exp[0]];
+        if (!termName) {
+            throw new Error("Bad term " + exp[0] + " : " +
+                            JSON.stringify(fact));
+        }
+        var it = context.terms[termName];
+        if (!it) {
+            it = new InferredTerm();
+            it.name = termName;
+            context.terms[termName] = it;
+        }
+        if (fact.Tree.Cmd == 'stmt') {
+            context.axiomTerms[termName] = it;
+        }
+        var arity = exp.length - 1;
+        if (isNaN(it.arity)) {
+            it.arity = arity;
+        } else {
+            if (it.arity != arity) {
+                // TODO: more graceful handling
+                throw new Error("Arity mismatch! Term " + termName +
+                                " was " + it.arity + " now " + arity);
             }
-            exp.slice(1).forEach(recurse);
+        }
+        for (var i = 0; i < arity; i++) {
+            var arg = exp[i+1];
+            if (Array.isArray(arg)) {
+                if (it.isBinding[i]) {
+                    // Collision of separately-defined terms.
+                    throw new Error("Houston, we have a problem." +
+                                    "\nterm=" + termName +
+                                    "\ni=" + i +
+                                    "\nfact=" + JSON.stringify(fact));
+                }
+                it.isTerm[i] = true;
+                recurse(arg);
+            } else {
+                var v = fact.Skin.VarNames[arg];
+                if (!v) {
+                    throw new Error("Bad VarName " + arg + " i=" + i +
+                                    " exp=" + JSON.stringify(exp) +
+                                    " fact=" + 
+                                    JSON.stringify(fact));
+                }
+                if (bindingVars[v] || it.isBinding[i]) {
+                    context.vars[v] = " var (k " + v + ")\n"; // TODO: kinds
+                } else if (!context.vars[v]) {
+                    context.vars[v] = "tvar (k " + v + ")\n"; // TODO: kinds
+                }
+            }
         }
     }
     recurse(fact.Core[Fact.CORE_STMT]);
@@ -77,7 +135,6 @@ function inferTerms(fact) {
 
 var context = {};
 context.pendingTheorems = {};
-context.axiomTerms = {"-.": 1, "->": 1}; //XXX
 context.requestFact = function(core, hint, cb) {
     // TODO: keying this by hint.name assumes no two different facts have the
     // same name.
@@ -150,15 +207,7 @@ context.requestFact = function(core, hint, cb) {
                     }
                     var where = isThm ? context.proofs : context.iface;
                     // add vars (and terms?)
-                    best.fact.Skin.VarNames.forEach(function(v) {
-                        // TODO: kinds
-                        // TODO: t/v
-                        where.vars[v] = "tvar (k " + v + ")\n";
-                        
-                    });
-                    if (!isThm) {
-                        inferTerms(best.fact);
-                    }
+                    inferTerms(best.fact);
                     newNode.next = where.dll;
                     if (where.dll) {
                         where.dll.prev = newNode;
@@ -190,13 +239,12 @@ context.requestFact = function(core, hint, cb) {
 context.map = {};
 context.proofs = {
     dll: null,
-    vars:{},
 }
-
+context.vars = {};
+context.terms = {};
+context.axiomTerms = {};
 context.iface = {
     dll: null,
-    vars:{},
-    terms: {},
 }
 
 
@@ -222,14 +270,14 @@ function finish() {
             str += obj[k];
         }
     }
-    appendVals(context.iface.vars);
-    appendVals(context.iface.terms);
+    appendVals(context.vars);
+    appendVals(context.axiomTerms);
     str += concatDll(context.iface.dll);
     Fs.writeFileSync("tmp.ghi", str);
 
     str = "";
     str += 'import (TMP tmp.ghi () "")\n';
-    appendVals(context.proofs.vars);
+    appendVals(context.vars);
     str += concatDll(context.proofs.dll);
     Fs.writeFileSync("tmp.gh", str);
 }
