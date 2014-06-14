@@ -22,15 +22,24 @@ function score(fact, hint) {
     if (fact.Skin.Name == hint.name) {
         n += 10;
     }
-    if ((fact.Tree.Cmd == "stmt") === (hint.name.match(/^ax-/) ? true : false)) {
-        n += 1;
+    // TODO: hacky
+    if ((fact.Tree.Cmd == "stmt") &&
+        (!hint.name.match(/^ax-/)) &&
+        (!hint.name.match(/^df-and/))) {
+        n -= 1;
     }
     if (context.iface.terms[fact.getNewTerm()]) {
         n -= 100;
     }
-    if (JSON.stringify(fact.Skin.TermNames) ===
-        JSON.stringify(hint.terms)) {
+    if (hint.terms &&
+        (JSON.stringify(fact.Skin.TermNames.slice(0, hint.terms.length)) ===
+         JSON.stringify(hint.terms))) {
         n += 1000;
+    }
+    if (hint.name == 'addeq12') {
+        console.log("XXXX Scored: " + n +
+                    "\n  Hint=" + JSON.stringify(hint) +
+                    "\n  Fact=" + JSON.stringify(fact));
     }
     return n;
 }
@@ -134,7 +143,6 @@ function inferTerms(fact) {
 }
 
 var context = {};
-context.pendingTheorems = {};
 context.requestFact = function(core, hint, cb) {
     // TODO: keying this by hint.name assumes no two different facts have the
     // same name.
@@ -209,7 +217,6 @@ context.requestFact = function(core, hint, cb) {
                                    next:null};
                     var newBox = {fact: best.fact};
                     context.map[best.fact.Skin.Name] = newBox;
-                    context.pendingTheorems[best.key] = true;
                     var isThm = best.fact.Tree.Cmd !== 'stmt';
                     if (isThm) {
                         newBox.node = newNode;
@@ -236,7 +243,6 @@ context.requestFact = function(core, hint, cb) {
                             cb(err, null);
                         } else {
                             console.log("Finished with " + best.fact.Skin.Name + " = " + best.key);
-                            context.pendingTheorems[best.key] = false;
                             newNode.text = out;
                             cb(null, best.fact);
                         }
@@ -298,8 +304,8 @@ function finish() {
 if (true) {
     factsDb.get(
         // "[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", //nic-luk1
-        //'[[],[0,[1,0,1],[1,1,0]],[]];a3d0702f50d44f57e382db0b977c52e3df6c2a50', //addcom
-        "[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
+        '[[],[0,[1,0,1],[1,1,0]],[]];a3d0702f50d44f57e382db0b977c52e3df6c2a50', //addcom
+        //"[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
         
                 function(err, data) {
         if (err) {
@@ -313,6 +319,7 @@ if (true) {
             }
             context.proofs.dll = node;
             context.map[fact.Skin.Name] = {fact:fact, node:node};
+            inferTerms(fact);
             fact.toGhilbert(context, function(err, out) {
                 if (err) {
                     console.log("ERROR: " + err);
