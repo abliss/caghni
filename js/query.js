@@ -25,7 +25,7 @@ function score(fact, hint) {
     if ((fact.Tree.Cmd == "stmt") === (hint.name.match(/^ax-/) ? true : false)) {
         n += 1;
     }
-    if (context.axiomTerms[fact.getNewTerm()]) {
+    if (context.iface.terms[fact.getNewTerm()]) {
         n -= 100;
     }
     if (JSON.stringify(fact.Skin.TermNames) ===
@@ -90,7 +90,7 @@ function inferTerms(fact) {
             context.terms[termName] = it;
         }
         if (fact.Tree.Cmd == 'stmt') {
-            context.axiomTerms[termName] = it;
+            context.iface.terms[termName] = it;
         }
         var arity = exp.length - 1;
         if (isNaN(it.arity)) {
@@ -140,31 +140,39 @@ context.requestFact = function(core, hint, cb) {
     // same name.
     var oldHit = context.map[hint.name];
     if (oldHit) {
-        //console.log("Requeried " + hint.name);
-        // move to front of dll if it's not there already.
-        if ((oldHit.node) && (oldHit.node !== context.proofs.dll)) {
-            var p = oldHit.node.prev;
-            var q = oldHit.node.next;
-            if (p) {
-                p.next = q;
-            }
-            if (q) {
-                q.prev = p;
-            }
-            oldHit.node.prev = null;
-            var oldHead = context.proofs.dll;
-            oldHit.node.next = oldHead;
-            oldHead.prev = oldHit.node;
-            context.proofs.dll = oldHit.node;
-            // we need to pull all of its dependencies to the front.
-            // TODO: The following is an easy, but stupidly-slow way.
-            oldHit.fact.toGhilbert(context, function(err, out) {
-                if (err) {
-                    err += "\n  Moving to front: " + oldHit.fact.Skin.Name;
-                    cb(err, null);
+        function promote(box) {
+            //console.log("Requeried " + hint.name);
+            // move to front of dll if it's not there already.
+            if (box && (box.node) && (box.node !== context.proofs.dll)) {
+                var p = box.node.prev;
+                var q = box.node.next;
+                if (p) {
+                    p.next = q;
                 }
-            });
+                if (q) {
+                    q.prev = p;
+                }
+                box.node.prev = null;
+                var oldHead = context.proofs.dll;
+                box.node.next = oldHead;
+                oldHead.prev = box.node;
+                context.proofs.dll = box.node;
+                // we need to pull all of its dependencies to the front.
+                // TODO: The following is an easy, but stupidly-slow way.
+                box.fact.toGhilbert(context, function(err, out) {
+                    if (err) {
+                        err += "\n  Moving to front: " + box.fact.Skin.Name;
+                        cb(err, null);
+                    }
+                });
+            }
         }
+        promote(oldHit);
+        // must also promote defthms for all its non-axiom terms.
+        // TODO: These *should* already be chosen, but might not be.
+        oldHit.fact.Skin.TermNames.forEach(function(t) {
+            promote(context.proofs.terms[t]);
+        });
         cb(null, oldHit.fact);
         return;
     }
@@ -199,15 +207,19 @@ context.requestFact = function(core, hint, cb) {
                     var newNode = {text:null,
                                    prev:null,
                                    next:null};
-                    context.map[best.fact.Skin.Name] = {fact: best.fact};
+                    var newBox = {fact: best.fact};
+                    context.map[best.fact.Skin.Name] = newBox;
                     context.pendingTheorems[best.key] = true;
                     var isThm = best.fact.Tree.Cmd !== 'stmt';
                     if (isThm) {
-                        context.map[best.fact.Skin.Name].node = newNode;
+                        newBox.node = newNode;
                     }
                     var where = isThm ? context.proofs : context.iface;
                     // add vars (and terms?)
                     inferTerms(best.fact);
+                    if (best.fact.Tree.Cmd == 'defthm') {
+                        context.proofs.terms[best.fact.getNewTerm()] = newBox;
+                    }
                     newNode.next = where.dll;
                     if (where.dll) {
                         where.dll.prev = newNode;
@@ -238,12 +250,13 @@ context.requestFact = function(core, hint, cb) {
 
 context.map = {};
 context.proofs = {
+    terms:{},
     dll: null,
 }
 context.vars = {};
 context.terms = {};
-context.axiomTerms = {};
 context.iface = {
+    terms: {},
     dll: null,
 }
 
@@ -271,7 +284,7 @@ function finish() {
         }
     }
     appendVals(context.vars);
-    appendVals(context.axiomTerms);
+    appendVals(context.iface.terms);
     str += concatDll(context.iface.dll);
     Fs.writeFileSync("tmp.ghi", str);
 
@@ -285,8 +298,9 @@ function finish() {
 if (true) {
     factsDb.get(
         // "[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", //nic-luk1
-        // "[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
-        '[[],[0,[1,0,1],[1,1,0]],[]];a3d0702f50d44f57e382db0b977c52e3df6c2a50', //addcom
+        //'[[],[0,[1,0,1],[1,1,0]],[]];a3d0702f50d44f57e382db0b977c52e3df6c2a50', //addcom
+        "[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
+        
                 function(err, data) {
         if (err) {
             console.log(err);
