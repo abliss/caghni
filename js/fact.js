@@ -17,7 +17,7 @@
             Skin: {
                 Name: undefined,
                 License: undefined,
-                HypNames: [],
+                HypNames:[],
                 DepNames: [],
                 VarNames: [],
                 TermNames: [],
@@ -229,7 +229,7 @@
     };
     // Returns an appropriate database key, specific to the core
     Fact.prototype.getKey = function() {
-        var key = JSON.stringify(this.Core);
+        var key = this.getMark();
         if (Math.random() < 0.01) {
             console.log("XXXX Key: " + key)
         }
@@ -251,5 +251,10 @@
         scan(this.Core[Fact.CORE_STMT]);
         return this.Skin.TermNames.slice(0, maxOp + 1);
     };
+    Fact.prototype.getMark = function() {
+        return JSON.stringify(this.Core) + ";" +
+            JSON.stringify(this.getCoreTermNames());
+    };
+
     module.exports = Fact;
 })(module);
