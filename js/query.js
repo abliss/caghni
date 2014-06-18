@@ -23,10 +23,11 @@ function score(fact, hint) {
         n += 10;
     }
     // TODO: hacky
-    if ((fact.Tree.Cmd == "stmt") &&
-        (!hint.name.match(/^ax-/)) &&
-        (!hint.name.match(/^df-and/))) {
-        n -= 1;
+    if ((fact.Tree.Cmd == "stmt") ==
+        ((fact.Skin.Name.slice(0,3) == "ax-") ||
+         (fact.Skin.Name == "df-and") ||
+         (fact.Skin.Name == "def-bi"))) {
+        n += 1;
     }
     if (context.iface.terms[fact.getNewTerm()]) {
         n -= 100;
@@ -36,7 +37,8 @@ function score(fact, hint) {
          JSON.stringify(hint.terms))) {
         n += 1000;
     }
-    if (hint.name == 'addeq12') {
+
+    if (hint.name == 'def-bi'|| fact.Skin.Name=='def-bi') {
         console.log("XXXX Scored: " + n +
                     "\n  Hint=" + JSON.stringify(hint) +
                     "\n  Fact=" + JSON.stringify(fact));
@@ -143,13 +145,13 @@ function inferTerms(fact) {
 }
 
 var context = {};
+
 context.requestFact = function(core, hint, cb) {
     // TODO: keying this by hint.name assumes no two different facts have the
     // same name.
     var oldHit = context.map[hint.name];
     if (oldHit) {
         function promote(box) {
-            //console.log("Requeried " + hint.name);
             // move to front of dll if it's not there already.
             if (box && (box.node) && (box.node !== context.proofs.dll)) {
                 var p = box.node.prev;
@@ -192,21 +194,15 @@ context.requestFact = function(core, hint, cb) {
             err += "\n  Reading DB for " + hint;
             cb(err, null);
         }).
-        on('close', function() {
-            /*
-            cb("Closed!\n  Query=" + JSON.stringify(opts) +
-               "\n  Best=" + JSON.stringify(best), null);
-            */
-        }).
         on('data', function(data) {
-            // Avoid loops
             var fact = new Fact(JSON.parse(data.value));
-            //console.log("Queried " + hint.name + " got " + fact.Skin.Name);
-            if (!best || (score(fact, hint) > score(best.fact, hint))) {
-                best = {key: data.key, fact: fact};
+            var s = score(fact, hint);
+            if (!best || (s > best.score)) {
+                best = {key: data.key, fact: fact, score: s};
             }
         }).
         on('end', function() {
+
             if (best) {
                 if (context.map[best.fact.Skin.Name]) { //XXX key
                     //console.log("# XXXX Already got it");
@@ -232,11 +228,6 @@ context.requestFact = function(core, hint, cb) {
                         where.dll.prev = newNode;
                     }
                     where.dll = newNode;
-/*
-                    console.log("# XXXX Getting ghilbert for " +
-                                best.fact.Skin.Name +
-                                " as " + best.fact.Tree.Cmd);
-*/
                     best.fact.toGhilbert(context, function(err, out) {
                         if (err) {
                             err += "\n  Ghilbertizing " + best.fact.Skin.Name;
@@ -304,7 +295,7 @@ function finish() {
 if (true) {
     factsDb.get(
         // "[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", //nic-luk1
-        '[[],[0,[1,0,1],[1,1,0]],[]];a3d0702f50d44f57e382db0b977c52e3df6c2a50', //addcom
+        '[[],[0,[1,0,1],[1,1,0]],[]];faa7bee8e79b92240ad1b396f06e6ae8cbed90ba', //addcom
         //"[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
         
                 function(err, data) {
@@ -341,5 +332,4 @@ if (true) {
         on('data', function(data) {
             console.log(data)
         });
-
 }

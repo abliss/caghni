@@ -74,7 +74,7 @@
     Fact.prototype.nameDep = function(s, fact) {
         var that = this;
         return 'Deps.' + indexOf(this.Skin.DepNames, s, function(n) {
-            var termMap = fact.Skin.TermNames.map(function(term) {
+            var termMap = fact.getCoreTermNames().map(function(term) {
                 return that.nameTerm(term);
             });
             that.Tree.Deps[n] = [fact.Core, termMap]; //TODO: should copy Core
@@ -235,6 +235,21 @@
         }
         return key;
     };
-
+    // Returns the prefix of this.Skin.TermNames which is used in the Core.
+    Fact.prototype.getCoreTermNames = function() {
+        // TODO: this is a little hacky...
+        var maxOp = -1;
+        function scan(exp) {
+            if (exp.slice) {
+                if (exp[0] > maxOp) {
+                    maxOp = exp[0];
+                }
+                exp.slice(1).map(scan);
+            }
+        }
+        this.Core[Fact.CORE_HYPS].forEach(scan);
+        scan(this.Core[Fact.CORE_STMT]);
+        return this.Skin.TermNames.slice(0, maxOp + 1);
+    };
     module.exports = Fact;
 })(module);

@@ -3922,3 +3922,10 @@ stmt (nic-luk2 () () (-> (-> (-. ph) ph) ph))
 #  Proof of [[luk-3]] from [[nic-ax]] and [[nic-mp]].  (Contributed by Jeff
 #      Hoffman, 18-Nov-2007.)
 stmt (nic-luk3 () () (-> ph (-> (-. ph) ps)))
+
+stmt (df-and () ()
+          (-. (-> (-> (/\ ph ps) (-. (-> ph (-. ps))))
+                  (-. (-> (-. (-> ph (-. ps))) (/\ ph ps))))))
+stmt (def-bi () ()
+     (/\ (-> (<-> ph ps) (/\ (-> ph ps) (-> ps ph)))
+         (-> (/\ (-> ph ps) (-> ps ph)) (<-> ph ps))))
