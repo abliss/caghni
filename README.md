@@ -13,12 +13,13 @@ The idea of caghni is to build a Ghilbert-compatable (or nearly-so) convention f
 
 # Current Status
 
-A nodejs-based tool can compile ghilbert files into a leveldb. A go-based tool
-can then query the leveldb and produce ghilbert-verifiable output, gluing any
-one interface to another on demand.
+A nodejs-based tool can compile ghilbert files into a leveldb. Another nodejs
+tool can then query the leveldb and produce ghilbert-verifiable output, creating
+from any target thm a minimal .gh/.ghi filepair. (The go-lang code is currently not
+up-to-date.)
 
 Sadly, whitespace and comments do not yet survive the procedure. And currently
-everything must use the same set of operator terms.
+everything must use the same set of term operators.
 
 # Try it out
 
@@ -30,18 +31,17 @@ You need relatively recent versions of `node.js` (I'm using 0.8.20) and `go` (1.
 
 This compiles all `.gh` files into a database,`out/facts.leveldb`. It's slow, but you only have to do it once.
 
-    $ go get github.com/syndtr/goleveldb/leveldb
-    $ go build
-    $ ./caghni -d out/facts.leveldb \
-            -i test/in-gh/peano/prop_mer.ghi \
-            -e test/in-gh/peano/prop_luk.ghi > out.gh
-    $ python ~/ghilbert/verify.py out.gh
+    $ node query.js ../out
 
-This creates a file `out.gh` which starts by importing `prop-nic.ghi` and ends by exporting `prop_luk.ghi`. You can move from any of `prop_{nic,luk,mer,min}.ghi` to any other in this way. (If you did this by storing proofs in `.gh` files, some utility theorems would need to be proved ~12 times! In a caghni database we only need one copy of each.)
+This creates a proof file `tmp.gh` (which ends in the desired fact) and an
+interface file 'tmp.ghi' (which includes all needed axioms for tmp.gh).  Note
+that even though the original proof of a theorem may have appeared in a file
+that imported several interfaces with many axioms, the generated proof file has
+only one import, and it only contains the axioms necessary to support the theorem.
 
-Only theorems which are necessary for the verification will be output. There are many possible way to achieve this. For example, a theorem which depends on the assertion `(-> ph ph)` might use either `id` or `id1` in its proof (regardless of which was used when the proof was originally written). In general, choosing which theorems to include is an NP-complete problem. The current code guarantees only that if there are any solutions, one will eventually be found; and if there are not, the program will crash. In the future, we hope to improve the quality of the solutions.
+In general, there are many possible way to achieve this. For example, a theorem which depends on the assertion `(-> ph ph)` might use either `id` or `id1` in its proof (regardless of which was used when the proof was originally written). There is also the problem of choosing which axiom set to ground out in. These choices are driven by a scoring function in `query.js`, which is presently rather crude.
 
-The go program is pretty fast; it is also concurrent, so setting `$GOMAXPROCS` to, say, 4 or so, will likely make it even faster if your machine has many CPU cores.
+The query script is very much a work-in-progress. It doesn't backtrack, and is wasteful of RAM and CPU.  It can handle `addcom` if you let it have a few minutes and a few hundred MB of RAM to work with. If your scoring function isn't tuned exactly right, the search can get stuck in an infinite recursion.
 
 # Schema
 
@@ -56,43 +56,39 @@ In the database, this becomes the following object:
             [],                           // Hyps
             [0,[1,0,[2,1]],[2,[3,0,1]]],  // Stmt
             [],                           // Free
-            ["<->","A.","-.","E."]],      // Term
+           ],
      Skin:{
          Name:"alnex",
          HypNames:[],
          Delimiters:[],            // will preserve whitespace and comments
          DepNames:["df-ex","con2bii"],
          VarNames:["x", "ph"],
+         TermNames:["<->","A.","-.","E."],  // May end with terms not present in Core
      },
      Tree:{
          Cmd:"thm",
          Deps:[
-             [[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]],
-              ["<->","E.","-.","A."]],
+             [[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]], // The Core of a Fact we depend on
+              [0,3,2,1]],       // A permutation mapping the dep's terms onto our own
              [[[[0,1,[1,0]]],[0,0,[1,1]],[]],
-              ["<->","-."]]],
+              [0,2]]],
          Proof:[0,1,"Deps.0","Deps.1"],
      }
     }
 
-The "Core" is the actual skeleton of the Fact, and is fundamental to how it is used in a proof. A Term substitution applied consistently throughout the file (e.g. &rarr; for `->`) is okay. The "Skin" comprises presentation-only content which doesn't affect the Fact's meaning or how it is used. The "Tree" captures the Fact's dependence on other Facts. (Terms and Kinds which are present in the proof of a thm, but not in its statement or hyps, are kept in the Tree in order to keep the Bone clean.)
-
-Each element of the Tree.Deps array names a prerequisite for the Proof. However, it does not refer to a particular fact, but only to its Core.
+The "Core" is the actual skeleton of the Fact, and is fundamental to how it is used in a proof. The "Skin" comprises presentation-only content which doesn't affect the Fact's meaning or how it is used. The "Tree" captures the Fact's dependence on other Facts. Each element of the Tree.Deps array names a prerequisite for the Proof. However, it does not refer to a particular fact, but only to its Core, and to the mapping between that the Term indices of the two Facts. 
  
-Now we know that if we want to prove the Fact of `alnex`, we don't necessarily need `df-ex`, just some Fact (be it a thm, a defthm, or a stmt) with the same Bone, and a compatible Meat.
+Now we know that if we want to prove the Fact of `alnex`, we don't necessarily need `df-ex`, just some Fact (be it a thm, a defthm, or a stmt) with the same Core, and a compatible set of terms. If its Skin.TermNames matches, we can use it directly. If a substitution is applied consistntly through the file (e.g. &rarr; for `->`) that's okay too.
 
 For example, in general/First-order_logic.gh, there is 
 
     defthm (ThereExists formula (∃ x φ) () () (↔ (∃ x φ) (¬ (∀ x (¬ φ)))) ...)
 
-which creates a Fact with this Core:
+which creates a Fact with the same Core as `alnex` (i.e, `[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]]`) and a `Skin.TermNames` array of `["↔","∃","¬","∀"]]`.  Thus, as long as our query engine can consistently map ↔ to `<->` ,  etc. ,throughout the file, this can be used just as well as df-ex. (Not yet implemented.)
 
-    [[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]],
-     ["↔","∃","¬","∀"]]
+Note that the Fact schema stores no information about the Kinds of variables or terms, nor the distinction between "Term Variables" and "Binding Variables" (`var` versus `tvar` statments). The latter can be inferred at runtime (with the side-effect of occasionally making a theorem more general) and the former can be elided without sacrificing soundness: in the generated ghilbert proofs, all objects projected onto a single kind `k`. (Kind inference is expected to be added in the future.)
 
-Thus, as long as our query engine can consistently map ↔ to `<->` ,  "formula" to "wff", etc. throughout the file, this can be used just as well as df-ex. (Not yet implemented.)
-
-The leveldb is a simply key-value store; the key for each Fact is its Mark, as above, plus the sha1sum of its JSON contents. A Fact's proof is verified as it is added to the database; its entry never changes and need never be deleted. Multiple proofs of a Fact can happily exist side-by-side; one or another may be chosen for a particular query based on a variety of scoring algorithms. This database should scale well to many millions of Facts, and could easily be sharded across machines.
+The leveldb is a simply key-value store; the key for each Fact is its Core, as above, plus the sha1sum of its JSON contents. A Fact's proof is verified as it is added to the database; its entry never changes and need never be deleted. Multiple proofs of a Fact can happily exist side-by-side; one or another may be chosen for a particular query based on a variety of scoring algorithms. This database should scale well to many millions of Facts, and could easily be sharded across machines.
 
 
 
