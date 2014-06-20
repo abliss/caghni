@@ -33,8 +33,9 @@
         function copyFromSchema(schemaObj, inputObj, outputObj) {
             for (var k in schemaObj) {
                 if (inputObj && inputObj.hasOwnProperty(k)) {
-                    if ("object" === typeof schemaObj[k] &&
-                        schemaObj[k].length > 0) {
+                    var s = schemaObj[k];
+                    if ((Array.isArray(s) && (s.length > 0)) ||
+                        (!Array.isArray(s) && s)) {
                         outputObj[k] = schemaObj[k];
                         copyFromSchema(schemaObj[k], inputObj[k], outputObj[k]);
                     } else {
@@ -47,6 +48,7 @@
         }
         copyFromSchema(schema, obj, this);
     }
+
     Fact.CORE_HYPS = 0;
     Fact.CORE_STMT = 1;
     Fact.CORE_FREE = 2;
