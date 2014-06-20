@@ -24,6 +24,10 @@ GH.typeOf = function(obj) {
     return typeof obj;
 };
 
+GH.sexptohtml = function(sexp) {
+    return JSON.stringify(sexp);
+};
+
 GH.Scanner = function (lines) {
     this.lines = lines;
     this.lineno = 0;
