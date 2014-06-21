@@ -7,7 +7,8 @@
     function Fact(obj) {
 
         // This is the Fact schema. Only these fields are allowed. Anything
-        // undefined may only be set to a string.
+        // undefined may only be set to a string or, in the case of
+        // Tree.Definiendum, an int.
         var schema = {
             Core: [
                 [], // Hyps
@@ -25,7 +26,7 @@
             },
             Tree: {
                 Cmd: undefined,
-                Definiendum: [],  // only for defthms
+                Definiendum: undefined,  // Defthms: which term is defined?
                 Deps: [],
                 Proof: [],
             },
@@ -101,8 +102,8 @@
         this.Core[Fact.CORE_FREE] = arr;
         return this;
     };
-    Fact.prototype.setDefiniendum = function(exp) {
-        this.Tree.Definiendum = exp;
+    Fact.prototype.setDefiniendum = function(term) {
+        this.Tree.Definiendum = this.nameTerm(term);
         return this;
     };
     Fact.prototype.setProof = function(arr) {
@@ -110,6 +111,20 @@
     };
     Fact.prototype.setStmt = function(sexp) {
         this.Core[Fact.CORE_STMT] = sexp;
+    };
+    // Returns a subexpression whose first element is the given term.
+    function findSubExpWithTerm(sexp, term) {
+        // TODO: unexceptional exception
+        function recurse(subexp) {
+            if (Array.isArray(subexp)) {
+                if (subexp[0] == term) throw(subexp);
+                subexp.slice(1).map(recurse);
+            }
+        }
+        try { recurse(sexp); }
+        catch (e) { return e; }
+        throw new Error("Term not found! " + term + " in " +
+                        JSON.stringify(sexp));
     };
     Fact.prototype.toGhilbert = function(context, toGhilbertCb) {
         //console.log("# XXXX toGhilbert: " + this.Skin.Name);
@@ -135,7 +150,10 @@
 
         if (this.Tree.Cmd == 'defthm') {
             out += " k " + "\n"; // TODO: kinds
-            out += stringify(this.Tree.Definiendum) + "\n  ";
+            // infer the dsig by grabbing a subexp with the required term
+            var dsig = findSubExpWithTerm(this.Core[Fact.CORE_STMT],
+                                          this.Tree.Definiendum);
+            out += stringify(dsig) + "\n  ";
         }
         
         out += '(' + this.Core[Fact.CORE_FREE].map(function(fv) {
@@ -227,7 +245,7 @@
         if (this.Tree.Cmd != 'defthm') {
             return null;
         }
-        return this.Skin.TermNames[this.Tree.Definiendum[0]];
+        return this.Skin.TermNames[this.Tree.Definiendum];
     };
     // Returns an appropriate database key, specific to the core
     Fact.prototype.getKey = function() {
