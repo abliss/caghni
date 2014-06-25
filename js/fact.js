@@ -129,6 +129,7 @@
     Fact.prototype.toGhilbert = function(context, toGhilbertCb) {
         //console.log("# XXXX toGhilbert: " + this.Skin.Name);
         var that = this;
+        var out = "";
         function getVar(s) {
             // TODO: insert var/tvar cmds
             return that.Skin.VarNames[s];
@@ -142,7 +143,7 @@
                 return getVar(sexp);
             }
         }
-        var out = "";
+
         out += this.Tree.Cmd
         out += " ";
         out += "(" + this.Skin.Name;
@@ -155,7 +156,7 @@
                                           this.Tree.Definiendum);
             out += stringify(dsig) + "\n  ";
         }
-        
+
         out += '(' + this.Core[Fact.CORE_FREE].map(function(fv) {
             return '(' + fv.map(getVar).join(' ') + ')';
         }).join(' ') + ')';
@@ -275,6 +276,37 @@
         return JSON.stringify(this.Core) + ";" +
             JSON.stringify(this.getCoreTermNames());
     };
-
+    Fact.prototype.ensureFree = function(termVar, bindingVar) {
+        if (Array.isArray(termVar) || Array.isArray(bindingVar)) {
+            throw new Error("Expected vars: " + JSON.stringify(termVar) +
+                            " " + JSON.stringify(bindingVar));
+        }
+        var myFree = this.Core[Fact.CORE_FREE];
+        var freeList;
+        var firstIndexBigger = myFree.length;
+        // Keeps the list sorted if it already was.
+        for (var i = 0; i < myFree.length; i++) {
+            if (myFree[i][0] == termVar) {
+                freeList = myFree[i];
+                break;
+            } else if (myFree[i][0] > termVar) {
+                firstIndexBigger = i;
+            }
+        }
+        if (!freeList) {
+            freeList = [termVar];
+            myFree.splice(firstIndexBigger, 0, freeList);
+        }
+        firstIndexBigger = freeList.length;
+        for (var i = 1; i < freeList.length; i++) {
+            if (freeList[i] == bindingVar) {
+                // Already there. Nothing to do.
+                return;
+            } else if (freeList[i] > bindingVar) {
+                firstIndexBigger = i;
+            }
+        }
+        freeList.splice(firstIndexBigger, 0, bindingVar);
+    };
     module.exports = Fact;
 })(module);
