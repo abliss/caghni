@@ -278,10 +278,16 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
     var fact = new Fact().setCmd(myKw).setName(label);
     this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
     this.factsByLabel[label] = fact;
-    if (label == "df-and") {
+    if (false && label == "df-and") {
         console.log("putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
     }
     factsDb.put(makeDbKey(fact), JSON.stringify(fact));
+    try {
+        fact.verify();
+    } catch(e) {
+        console.log("Error verifying " + JSON.stringify(fact));
+        throw e;
+    }
     // super()
     GH.VerifyCtx.prototype.add_assertion.apply(this, arguments);
 

@@ -308,5 +308,147 @@
         }
         freeList.splice(firstIndexBigger, 0, bindingVar);
     };
+
+    function termEqual(t1, t2) {
+         // TODO: faster to use JSON.stringify?
+        if (Array.isArray(t1)) {
+            if (t1.length !== t2.length) {
+                return false;
+            }
+            for (var i = 0; i < t1.length; i++) {
+                if (!termEqual(t1[i], t2[i])) {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            return t1 === t2;
+        }
+    }
+
+    // Not a full unification; information flows only one way
+    function unify(src, dst, varMap, opMap) {
+        if (Array.isArray(src)) {
+            var opNum = src[0];
+            if (opMap) {
+                opNum = opMap[opNum];
+            }
+            if (!Array.isArray(dst) ||
+                (src.length !== dst.length) ||
+                (dst[0] !== opNum)) {
+                console.log("XXX3 " + JSON.stringify(src) + " != " + JSON.stringify(dst));
+                return false;
+            }
+            for (var i = 1; i < src.length; i++) {
+                if (!unify(src[i], dst[i], varMap, opMap)) {
+                console.log("XXX2 " + JSON.stringify(src) + " != " + JSON.stringify(dst));           return false;
+                }
+            }
+            return true;
+        } else {
+            if (varMap.hasOwnProperty(src)) {
+                src = varMap[src];
+                if (!termEqual(src, dst)) {
+                    console.log("XXX1 " + JSON.stringify(src) + " != " + JSON.stringify(dst));
+                    return false;
+                }
+                return true;
+            } else {
+                varMap[src] = dst;
+                return true;
+            }
+        }
+    }
+    function reduceProofStep(ctx, step, index) {
+        if (!ctx.fact) {
+            // On first call, accumulator contains only fact
+            ctx = {fact:ctx, stack:[], dvs:[], mh:[]};
+        }
+        if (typeof step === "string") {
+            var parts = step.split(/\./);
+            var num = Number(parts[1]);
+            switch(parts[0]) {
+            case "Deps":
+                var dep = ctx.fact.Tree.Deps[num];
+                var depCore = dep[0];
+                var opMap = dep[1];
+                var varMap = {}; // from dep vars to terms in fact vars
+                // Map vars present in hyps by one-way unification
+                depCore[Fact.CORE_HYPS].reduceRight(function(ign, hyp) {
+                    if (ctx.stack.length == 0) {
+                        throw new Error("Stack underflow: step " + step);
+                    } else if (!unify(hyp, ctx.stack.pop(), varMap, opMap)) {
+                        throw new Error("Hyp unify fail: step " + step);
+                    }
+                },undefined);
+                // Map remaining vars in stmt using mandhyps
+                function substitute(term) {
+                    if (Array.isArray(term)) {
+                        var opNum = opMap[term[0]];
+                        var out = term.slice(1).map(substitute);
+                        out.unshift(opNum);
+                        return out;
+                    } else if (varMap.hasOwnProperty(term)) {
+                        return varMap[term];
+                    } else {
+                        if (ctx.mh.length == 0) {
+                            throw new Error("Too few mandhyps! term " + term);
+                        }
+                        var mh = ctx.mh.shift();
+                        varMap[term] = mh;
+                        return mh;
+                    }
+                }
+                ctx.stack.push(substitute(depCore[Fact.CORE_STMT]));
+                // TODO: check DVS
+                break;
+            case "Hyps":
+                var hypArr = ctx.fact.Core[Fact.CORE_HYPS];
+                if (num >= hypArr.length) {
+                    throw new Error("Bad Hyp " + step + " at " + index);
+                }
+                ctx.stack.push(hypArr[num]);
+                break;
+            default:
+                throw new Error("Unknown string step " + step + " at " + index);
+            }
+            ctx.mh = [];
+        } else {
+            ctx.mh.push(step);
+        }
+        return ctx;
+    }
+    
+    // Checks the Tree for proof integrity; throws up any error.
+    Fact.prototype.verify = function() {
+        switch (this.Tree.Cmd) {
+        case 'stmt':
+            return;
+        case 'defthm':
+        case 'thm':
+            var ctx = this.Tree.Proof.reduce(reduceProofStep, this);
+            if (ctx.stack.length != 1) {
+                throw new Error("Final stack length " + ctx.stack.length);
+            } else if (this.Tree.Cmd == 'thm') {
+                if (!unify(ctx.stack[0], this.Core[Fact.CORE_STMT], {})) {
+                    throw new Error(
+                        "Thm Mismatch: Final stack has " +
+                            JSON.stringify(ctx.stack[0]) + " but wanted " +
+                            JSON.stringify(this.Core[Fact.CORE_STMT]));
+                    // TODO: We allow you to prove something more general than
+                    // you stated... but this is a bad idea and will not verify
+                    // in gh
+                } else {
+                    // defthm
+                }
+            } else {
+                // TODO: PICKUP: check defthms.
+            }
+            // TODO: PICKUP: check dvs.
+            return;
+        default:
+            throw new Error("Unknown cmd " + this.Tree.Cmd);
+        }
+    };
     module.exports = Fact;
 })(module);

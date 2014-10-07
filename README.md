@@ -76,9 +76,9 @@ In the database, this becomes the following object:
      }
     }
 
-The "Core" is the actual skeleton of the Fact, and is fundamental to how it is used in a proof. The "Skin" comprises presentation-only content which doesn't affect the Fact's meaning or how it is used. The "Tree" captures the Fact's dependence on other Facts. Each element of the Tree.Deps array names a prerequisite for the Proof. However, it does not refer to a particular fact, but only to its Core, and to the mapping between that the Term indices of the two Facts. 
+The "Core" is the actual skeleton of the Fact, and is fundamental to how it is used in a proof. The "Skin" comprises presentation-only content which doesn't affect the Fact's meaning or how it is used. The "Tree" captures the Fact's dependence on other Facts. Each element of the Tree.Deps array names a prerequisite for the Proof. However, it does not refer to a particular fact, but only to its Core, and to the mapping between the Term indices of the two Facts. 
  
-Now we know that if we want to prove the Fact of `alnex`, we don't necessarily need `df-ex`, just some Fact (be it a thm, a defthm, or a stmt) with the same Core, and a compatible set of terms. If its Skin.TermNames matches, we can use it directly. If a substitution is applied consistntly through the file (e.g. &rarr; for `->`) that's okay too.
+Now we know that if we want to prove the Fact of `alnex`, we don't necessarily need `df-ex`, just some Fact (be it a thm, a defthm, or a stmt) with the same Core, and a compatible set of terms. If its Skin.TermNames matches, we can use it directly. If a substitution is applied consistently through the file (e.g. &rarr; for `->`) that's okay too.
 
 For example, in general/First-order_logic.gh, there is 
 
@@ -86,7 +86,7 @@ For example, in general/First-order_logic.gh, there is
 
 which creates a Fact with the same Core as `alnex` (i.e, `[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]]`) and a `Skin.TermNames` array of `["↔","∃","¬","∀"]]`.  Thus, as long as our query engine can consistently map ↔ to `<->` ,  etc. ,throughout the file, this can be used just as well as df-ex. (Not yet implemented.)
 
-Note that the Fact schema stores no information about the Kinds of variables or terms, nor the distinction between "Term Variables" and "Binding Variables" (`var` versus `tvar` statments). The latter can be inferred at runtime (with the side-effect of occasionally making a theorem more general) and the former can be elided without sacrificing soundness: in the generated ghilbert proofs, all objects projected onto a single kind `k`. (Kind inference is expected to be added in the future.)
+Note that the Fact schema stores no information about the Kinds of variables or terms, nor the distinction between "Term Variables" and "Binding Variables" (`tvar` versus `var` statements). The latter can be inferred at runtime (with the side-effect of occasionally making a theorem more general) and the former can be elided without sacrificing soundness: in the generated ghilbert proofs, all objects are projected onto a single kind `k`. (Kind inference is expected to be added in the future.)
 
 The leveldb is a simply key-value store; the key for each Fact is its Core, as above, plus the sha1sum of its JSON contents. A Fact's proof is verified as it is added to the database; its entry never changes and need never be deleted. Multiple proofs of a Fact can happily exist side-by-side; one or another may be chosen for a particular query based on a variety of scoring algorithms. This database should scale well to many millions of Facts, and could easily be sharded across machines.
 
