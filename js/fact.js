@@ -1,4 +1,10 @@
 (function(module) {
+    function hasOwnProperties(x) {
+        for (var k in x) if (x.hasOwnProperty(k)) {
+            return true;
+        }
+        return false;
+    }
     // A Fact is an "interlingua" object representing a stmt, thm, or
     // defthm. This is designed for easy conversion to/from JSON.  For
     // consistency, you must almways name things in the same order.  Once the
@@ -15,6 +21,7 @@
                 [], // Stmt
                 [], // Free
             ],
+            FreeMaps: {}, // Key is int
             Skin: {
                 Name: undefined,
                 License: undefined,
@@ -36,7 +43,7 @@
                 if (inputObj && inputObj.hasOwnProperty(k)) {
                     var s = schemaObj[k];
                     if ((Array.isArray(s) && (s.length > 0)) ||
-                        (!Array.isArray(s) && s)) {
+                        (typeof(s) == 'object' && hasOwnProperties(s))) {
                         outputObj[k] = schemaObj[k];
                         copyFromSchema(schemaObj[k], inputObj[k], outputObj[k]);
                     } else {
@@ -419,6 +426,57 @@
         return ctx;
     }
     
+    // Matches the remnant (what's left on the proof stack) against a defthm's
+    // declared conclusion (the STMT of the core). Checks for consistency in all
+    // uses of the definition substitution, and writes to ctx.defSig and
+    // ctx.definiens. Throws up on any inconsistency. Does NOT check for
+    // soundness or freeness.
+    function defConcMatch(provedTerm, declaredTerm, fact, ctx) {
+        if (Array.isArray(provedTerm) != Array.isArray(declaredTerm)) {
+            throw new Error("Defthm conclusion mismatch: isArray");
+        }
+        if (Array.isArray(provedTerm)) {
+            if (provedTerm[0] == declaredTerm[0]) {
+                if (provedTerm.length != declaredTerm.length) {
+                    throw new Error("Defthm conclusion mismatch: length");
+                }
+                for (var i = 1; i < provedTerm.length; i++) {
+                    defConcMatch(provedTerm[i], declaredTerm[i], fact, ctx);
+                }
+                return;
+            } else if (declaredTerm[0] != fact.Tree.Definiendum) {
+                throw new Error("Defthm conclusion mismatch: Definiendum");
+            } else {
+                if (ctx.hasOwnProperty("defSig")) {
+                    if (ctx.defSig.length != declaredTerm.length) {
+                        throw new Error("Defthm conclusion mismatch: defSig.l");
+                    }
+                    for (var i = 1; i < declaredTerm.length; i++) {
+                        if (declaredTerm[i] !== ctx.defSig[i]) {
+                            throw new Error("Defthm conclusion mismatch:" +
+                                            " defSig inconsistent");
+                        }
+                    }
+                    if (!termEqual(ctx.definiens, provedTerm)) {
+                        throw new Error("Defthm conclusion mismatch:" +
+                                        " definiens inconsistent");
+                    }
+                    return;
+                } else {
+                    // OK, this is the first time we've seen the definiens.
+                    // Actual validity checked elsewhere.
+                    ctx.defSig = declaredTerm;
+                    ctx.definiens = provedTerm;
+                    return;
+                }
+            }
+        } else {
+            if (provedTerm !== declaredTerm) {
+                throw new Error("Defthm conclusion mismatch: eq");
+            }
+        }
+    }
+    
     // Checks the Tree for proof integrity; throws up any error.
     Fact.prototype.verify = function() {
         switch (this.Tree.Cmd) {
@@ -442,7 +500,11 @@
                     // defthm
                 }
             } else {
-                // TODO: PICKUP: check defthms.
+                defConcMatch(ctx.stack[0], this.Core[Fact.CORE_STMT], this,ctx);
+                if (!ctx.hasOwnProperty("defSig")) {
+                    throw new Error("Term being defined does not occur.");
+                }
+                // TODO: PICKUP: check soundness
             }
             // TODO: PICKUP: check dvs.
             return;

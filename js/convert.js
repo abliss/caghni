@@ -257,8 +257,29 @@ ConvertVerifyCtx.prototype.populateFact = function(fact, fv, hyps, stmt, proof,
     }
 
     if (dsig) { // defthms
-        fact.setDefiniendum(mapSexp(dsig[0]));
+        fact.setDefiniendum(dsig[0]);
     }
+
+    // Look up and record the FreeMap for each term used in this fact.
+    fact.FreeMaps = {};
+    fact.Skin.TermNames.forEach(function(name, termNum) {
+        var term = that.terms[name];
+        var freeMap = term[2];
+        // We only put an entry in the FreeMaps object if the term has at least
+        // one binding argument.
+        var freeMapVal = null;
+        freeMap.forEach(function(argSpec, argNum) {
+            if (argSpec == null) {
+                return;
+            };
+            if (freeMapVal == null) {
+                freeMapVal = {};
+                fact.FreeMaps[termNum] = freeMapVal;
+            }
+            freeMapVal[argNum] = argSpec.slice();
+            freeMapVal[argNum].sort();
+        });
+    });
 };
 
 ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
@@ -278,8 +299,8 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
     var fact = new Fact().setCmd(myKw).setName(label);
     this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
     this.factsByLabel[label] = fact;
-    if (false && label == "df-and") {
-        console.log("putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
+    if (label == 'sbc5' || label == "df-subst") {
+        console.log("XXXX putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
     }
     factsDb.put(makeDbKey(fact), JSON.stringify(fact));
     try {

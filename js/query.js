@@ -50,12 +50,14 @@ function score(fact, hint) {
 // Each term declaration will have its own set of variabled declared.
 // If the ith input to a term is *ever* another term, we declare it as termvar.
 // If it is never a term but always a variable, we declare it as a binding var.
-function InferredTerm(name, arity) {
+function InferredTerm(name, arity, freeMap) {
     this.name = name;
     this.arity = arity;
     this.isTerm = [];
-    this.isBinding = [];
     this.kind = "k"; // TODO:kinds
+    for (var i = 0; i < arity; i++) {
+        this.isTerm[i] = !freeMap || !freeMap.hasOwnProperty(i);
+    }
 }
 InferredTerm.prototype.toString = function() {
     var v = "\n";
@@ -71,6 +73,9 @@ InferredTerm.prototype.toString = function() {
     t += "))\n";
     return v + t;
 }
+function deepEquals(obj1, obj2) {
+    return JSON.stringify(obj1) === JSON.stringify(obj2);
+}
 function inferTerms(fact) {
     var bindingVars = {};
     // Collect binding vars from the fact's Free clause.
@@ -83,6 +88,8 @@ function inferTerms(fact) {
         // TODO: there is a possible problem here if one Fact considers a var
         // binding and another considers it term:
         // Collision of separately-defined vars.
+        // TODO: this should now be inferred from freemaps, and each fact
+        // can use its own set of vars!
         
     });
     function recurse(exp) {
@@ -94,16 +101,21 @@ function inferTerms(fact) {
             throw new Error("Bad term " + exp[0] + " : " +
                             JSON.stringify(fact));
         }
-        var it = context.terms[termName];
-        if (!it) {
-            it = new InferredTerm();
-            it.name = termName;
-            context.terms[termName] = it;
+        var arity = exp.length - 1;
+        var it = new InferredTerm(termName, arity, fact.FreeMaps[exp[0]]);
+        if (context.terms[termName]) {
+            if (!deepEquals(it, context.terms[termName])) {
+                throw new Error("Houston, we have a problem." +
+                                "\nterm=" + termName +
+                                "\ni=" + i +
+                                "\nfact=" + JSON.stringify(fact) +
+                                "\nit=" + JSON.stringify(it));
+            }
         }
+        context.terms[termName] = it;
         if (fact.Tree.Cmd == 'stmt') {
             context.iface.terms[termName] = it;
         }
-        var arity = exp.length - 1;
         if (isNaN(it.arity)) {
             it.arity = arity;
         } else {
@@ -116,14 +128,6 @@ function inferTerms(fact) {
         for (var i = 0; i < arity; i++) {
             var arg = exp[i+1];
             if (Array.isArray(arg)) {
-                if (it.isBinding[i]) {
-                    // Collision of separately-defined terms.
-                    throw new Error("Houston, we have a problem." +
-                                    "\nterm=" + termName +
-                                    "\ni=" + i +
-                                    "\nfact=" + JSON.stringify(fact));
-                }
-                it.isTerm[i] = true;
                 recurse(arg);
             } else {
                 var v = fact.Skin.VarNames[arg];
@@ -133,7 +137,7 @@ function inferTerms(fact) {
                                     " fact=" + 
                                     JSON.stringify(fact));
                 }
-                if (bindingVars[v] || it.isBinding[i]) {
+                if (it.isTerm[i] == false) {
                     context.vars[v] = " var (k " + v + ")\n"; // TODO: kinds
                 } else if (!context.vars[v]) {
                     context.vars[v] = "tvar (k " + v + ")\n"; // TODO: kinds
@@ -142,6 +146,7 @@ function inferTerms(fact) {
         }
     }
     recurse(fact.Core[Fact.CORE_STMT]);
+    // TODO: also recurse on proof terms
 }
 
 var context = {};
@@ -294,8 +299,8 @@ function finish() {
 
 if (true) {
     factsDb.get(
-        // "[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];add30c32799d8ec9a84c54adae34b3dbeb8e128a", //nic-luk1
-        '[[],[0,[1,0,1],[1,1,0]],[]];["=","+"];f3e574066c6ea6cb177eb08b3a4d08648cf62e54', //addcom
+        //'[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];["->"];c765a7251be57954ae4f948e57bc0a7bed4b5bce', //nic-luk1
+        '[[],[0,[1,0,1],[1,1,0]],[]];["=","+"];714cfc143e2b2201f7c6c0f3e51622a6e25b7a38', //addcom
         //"[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
         
                 function(err, data) {
@@ -324,7 +329,7 @@ if (true) {
     });
 
 } else {
-    var core = "[[],[0,[1,0,1],[1,1,0]";
+    var core = "[[],[0,[1,0,1],[1,1,0]],[]]";
     var opts = {start:core};
     opts.end = opts.start + "\xff";
     var best;
