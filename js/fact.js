@@ -366,10 +366,117 @@
             }
         }
     }
+
+    // Check whether bindingVar appears free (or could appear free) in
+    // exp, with respect to the given constraints. Returns true or false.
+    // TODO: does not distinguish explicitly allowable
+    function appearsFreeIn(freeMaps, notFreeMap, nonDummyVars, bindingVar,
+                           exp) {
+        if (Array.isArray(exp)) {
+            // By default, bVar is free in exp if it is free in SOME of the
+            // args.  BUT, if the term exp[0] has a freeMap, it might be the
+            // case that bVar is bound.
+
+            // Each boundList means: bVar is NOT free in exp, UNLESS it is also
+            // free in SOME of exps of the boundList. This UNLESS clause
+            // must trigger for EVERY boundList (if there are any) in order for
+            // bVar to be free in exp.
+            var boundLists = [];
+            var freeMap = freeMaps[exp[0]];
+            if (freeMap != undefined) {
+                exp.slice(1).forEach(function(arg, argNum) {
+                    if (arg == bindingVar) {
+                        var boundList = freeMap[argNum];
+                        if (boundList != undefined) {
+                            // Okay, the bVar has been found as a "binding arg".
+                            boundLists.push(boundList.map(function(argNum) {
+                                return exp[argNum + 1];
+                            }));
+                        }
+                    }
+                });
+            }
+            var recurse = appearsFreeIn.bind(null, freeMaps, notFreeMap,
+                                             nonDummyVars, bindingVar);
+            // If there were no boundLists, just check each arg.
+            if (boundLists.length == 0) {
+                return exp.slice(1).some(recurse);
+            } else {
+                // Again: in order for us to return true, EVERY boundList must
+                // contain SOME exp in which our bindingVar is free.
+                return boundLists.every(function(boundList) {
+                    return boundList.some(recurse);
+                });
+            }
+        } else {
+            if (bindingVar == exp) {
+                return true;
+            } else if (!nonDummyVars[bindingVar] || !nonDummyVars[exp]) {
+                // Each Proof Dummy Variable is assumed disjoint-from each other
+                // variable. (I.e., neither appears-free-in the other.)
+                return false;
+            } else {
+                // Note: we do not here distinguish between binding vars and
+                // term vars. We expect that every pair of distinct binding vars
+                // appears (both ways if necessary) in the notFreeMap.
+                return notFreeMap[bindingVar + "," + exp] ? false : true
+            }
+        }
+    }
+
     function reduceProofStep(ctx, step, index) {
         if (!ctx.fact) {
             // On first call, accumulator contains only fact
             ctx = {fact:ctx, stack:[], dvs:[], mh:[]};
+
+
+            // Find out which vars are Not Proof Dummy Vars, and which vars
+            // are Binding Vars.
+            // NOTE: we only mark a var as Binding if it is used as a binding
+            // arg to some term in the FreeMaps, in either a hyp or the conc.
+            // Otherwise we assume it is term.
+            // TODO: This could create a problem ... e.g. sbaxex. but usually(?) in a case where the thm proved was not as general as it should have been!
+            // TODO: PICKUP with rwffi
+            // TODO: this could be made faster using our assumption of sorted
+            // int varnames.
+            ctx.nonDummyVars = {};
+            var bindingVars = {};
+            function visitVars(exp) {
+                if (Array.isArray(exp)) {
+                    exp.slice(1).forEach(visitVars);
+                    var freeMap = ctx.fact.FreeMaps[exp[0]];
+                    if (freeMap !== undefined) {
+                        for (var k in freeMap) if (freeMap.hasOwnProperty(k)) {
+                            bindingVars[exp[Number(k) + 1]] = true;
+                        }
+                    }
+                } else {
+                    ctx.nonDummyVars[exp] = 1;
+                }
+            }
+            visitVars(ctx.fact.Core[Fact.CORE_STMT]);
+            ctx.fact.Core[Fact.CORE_HYPS].forEach(visitVars);
+
+            // Preprocess the freeness constraint in the core into a
+            // quicker-lookup map: notFreeMap[x,A] = 1 if x is not free in A.
+            var notFreeMap = {};
+            ctx.fact.Core[Fact.CORE_FREE].forEach(function(flist) {
+                var tVar = flist[0];
+                flist.slice(1).forEach(function(bVar) {
+                    notFreeMap[bVar + "," + tVar] = 1;
+                });
+            });
+            // appearsFreeIn() expects each pair of binding Vars to be declared
+            // explicitly not-free-in each other. TODO: this should be taken
+            // care of in the conversion.
+            for (var k1 in bindingVars) {
+                for (var k2 in bindingVars) {
+                    if (k1 != k2) {
+                        notFreeMap[k1 + "," + k2] = 1;
+                    }
+                }
+            }
+            ctx.notFreeMap = notFreeMap;
         }
         if (typeof step === "string") {
             var parts = step.split(/\./);
@@ -381,13 +488,13 @@
                 var opMap = dep[1];
                 var varMap = {}; // from dep vars to terms in fact vars
                 // Map vars present in hyps by one-way unification
-                depCore[Fact.CORE_HYPS].reduceRight(function(ign, hyp) {
+                depCore[Fact.CORE_HYPS].reduceRight(function(ignored, hyp) {
                     if (ctx.stack.length == 0) {
                         throw new Error("Stack underflow: step " + step);
                     } else if (!unify(hyp, ctx.stack.pop(), varMap, opMap)) {
                         throw new Error("Hyp unify fail: step " + step);
                     }
-                },undefined);
+                }, undefined);
                 // Map remaining vars in stmt using mandhyps
                 function substitute(term) {
                     if (Array.isArray(term)) {
@@ -407,7 +514,26 @@
                     }
                 }
                 ctx.stack.push(substitute(depCore[Fact.CORE_STMT]));
-                // TODO: check DVS
+                // Now that varMap is complete, check it against the dep's free
+                // constraints.
+                depCore[Fact.CORE_FREE].forEach(function(flist) {
+                    var term = varMap[flist[0]];
+                    flist.slice(1).forEach(function(bvar) {
+                        var newBvar = varMap[bvar];
+                        if (Array.isArray(newBvar)) {
+                            throw new Error("Expected binding var for " + bvar +
+                                            "; got " + JSON.stringify(newBvar));
+                        }
+                        if (appearsFreeIn(ctx.fact.FreeMaps, ctx.notFreeMap,
+                                          ctx.nonDummyVars, newBvar, term)) {
+                            console.log("XXXX nfm " +
+                                        JSON.stringify(ctx.notFreeMap));
+                            throw new Error("Freeness violation! " + newBvar +
+                                            " free in " + JSON.stringify(term) +
+                                            " at step " + step  + "@" + index);
+                        }
+                    });
+                });
                 break;
             case "Hyps":
                 var hypArr = ctx.fact.Core[Fact.CORE_HYPS];
@@ -425,7 +551,7 @@
         }
         return ctx;
     }
-    
+
     // Matches the remnant (what's left on the proof stack) against a defthm's
     // declared conclusion (the STMT of the core). Checks for consistency in all
     // uses of the definition substitution, and writes to ctx.defSig and
@@ -476,7 +602,7 @@
             }
         }
     }
-    
+
     // Checks the Tree for proof integrity; throws up any error.
     Fact.prototype.verify = function() {
         switch (this.Tree.Cmd) {

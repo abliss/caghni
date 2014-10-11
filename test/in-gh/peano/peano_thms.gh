@@ -1640,18 +1640,18 @@ thm (substex ((ph x y) (ps y) (ch x) (A y))
 #       (= x y) ph df-an x exbii biimpi
 #     syl5)
 
-thm (sbaxex () () (-> (A. x (-> (= x y) ph)) (E. x (/\ (= x y) ph)))
-     x y tyex
-       x (= x y) ph mpexaxp
+thm (sbaxex ((A x)) () (-> (A. x (-> (= x A) ph)) (E. x (/\ (= x A) ph)))
+     x A tyex
+       x (= x A) ph mpexaxp
      ax-mp)
 
-thm (sbaxexd () (1 (-> ph (A. x (-> (= x y) ps))))
-        (-> ph (E. x (/\ (= x y) ps)))
-     1 x y ps sbaxex syl)
+thm (sbaxexd ((A x)) (1 (-> ph (A. x (-> (= x A) ps))))
+        (-> ph (E. x (/\ (= x A) ps)))
+     1 x A ps sbaxex syl)
 
-thm (exlem1 ((ph x)) () (-> (E. x ph) (E. x (/\ (= x y) ph)))
+thm (exlem1 ((ph x) (A x)) () (-> (E. x ph) (E. x (/\ (= x A) ph)))
      ph x alnfi
-       ph (= x y) ax-1 x 19.20i
+       ph (= x A) ax-1 x 19.20i
      syl x 19.22i exax1d sbaxexd)
 
 thm (exalpha1 ((ph y) (ps x)) (1 (-> (= x y) (-> ph ps)))
@@ -1841,17 +1841,17 @@ x 19.22i
 ax-mp
 )
 
-thm (sbcadd ((A z) (ph z)) () (-> ([/] (+ x A) y ph) (E. z ([/] z y ph)))
-  ([/] (+ x A) y ph) z alnfi
-  z (+ x A) tyex
-  z (+ x A) y ph dfsbcq  
+thm (sbcadd ((B z) (A z) (ph z)) () (-> ([/] (+ B A) y ph) (E. z ([/] z y ph)))
+  ([/] (+ B A) y ph) z alnfi
+  z (+ B A) tyex
+  z (+ B A) y ph dfsbcq  
   ImpReplaceEx1
   
   ## <d 'Infer Right to Left '>
-    ([/] z y ph) ([/] (+ x A) y ph) bi2
+    ([/] z y ph) ([/] (+ B A) y ph) bi2
     ImpReplaceEx1
   ## </d 'Infer Right to Left '>
-  z ([/] (+ x A) y ph) ([/] z y ph) eximp1  
+  z ([/] (+ B A) y ph) ([/] z y ph) eximp1  
   ax-mp  
   syl
 )
