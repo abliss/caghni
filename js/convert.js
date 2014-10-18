@@ -281,7 +281,6 @@ ConvertVerifyCtx.prototype.populateFact = function(fact, fv, hyps, stmt, proof,
         });
     });
 };
-var XXXverify = false;
 ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
                 varlist, num_hypvars, num_nondummies, syms, styling) {
     var proof, dkind, dsig;
@@ -302,7 +301,6 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
     if (label == 'sbc5' || label == "df-subst") {
         console.log("XXXX putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
     }
-    if (label == 'recursive') { XXXverify = true; }
     factsDb.put(makeDbKey(fact), JSON.stringify(fact));
     try {
         fact.verify();

@@ -460,14 +460,7 @@
             ctx = {fact:ctx, stack:[], mandHyps:[], notFreeMap:{},
                    nonDummyVars: {}, bindingVars: {}};
 
-            // Find out which vars are Not Proof Dummy Vars, and which vars
-            // are Binding Vars.
-            // NOTE: we only mark a var as Binding if it is used as a binding
-            // arg to some term in the FreeMaps, in either a hyp or the conc.
-            // Otherwise we assume it is term.
-            // TODO: This could create a problem ... e.g. sbaxex. but usually(?)
-            // in a case where the thm proved was not as general as it should
-            // have been!
+            // Find out which vars are Not Proof Dummy Vars.
             // TODO: this could be made faster using our assumption of sorted
             // int varnames.
             var markNonDummy = visitVars.bind(null, ctx, function(v) {
@@ -475,6 +468,15 @@
             });
             markNonDummy(ctx.fact.Core[Fact.CORE_STMT]);
             ctx.fact.Core[Fact.CORE_HYPS].forEach(markNonDummy);
+
+            // NOTE: we only mark a var as Binding if it is used as a binding
+            // arg to some term in the FreeMaps, in either a hypothesis, the
+            // conclusion, or an expression pushed onto the proof stack.
+            // Otherwise we assume it is a Term var.
+
+            // TODO: This could create a problem. E.g. sbaxex. but usually
+            // (always?) in a case where the thm proved was not as general as
+            // it should have been!
         }
         if (typeof step === "string") {
             var parts = step.split(/\./);
@@ -603,7 +605,9 @@
         }
     }
 
-    // Checks the Tree for proof integrity; throws up any error.
+    // Checks the Tree for proof integrity; throws up any error. If successful
+    // (and if the fact is not a stmt), returns an object with some verification
+    // context. In particular, it contains the set of bindingVars.
     Fact.prototype.verify = function() {
         switch (this.Tree.Cmd) {
         case 'stmt':
@@ -622,16 +626,68 @@
                     // TODO: We allow you to prove something more general than
                     // you stated... but this is a bad idea and will not verify
                     // in gh
-                } else {
-                    // defthm
                 }
-            } else {
-                defConcMatch(ctx.stack[0], this.Core[Fact.CORE_STMT], this,ctx);
+            } else { // BEGIN defthm handling
+                defConcMatch(ctx.stack[0], this.Core[Fact.CORE_STMT], this, ctx);
                 if (!ctx.hasOwnProperty("defSig")) {
                     throw new Error("Term being defined does not occur.");
                 }
-                // TODO: PICKUP: check soundness
-            }
+                // Ghilbert has a few more restrictions on defthms to guarantee
+                // soundness:
+       // - all formal arguments of the definition term occur in remnant
+       // - For any variable v occurring in remnant that isn't one of the formal
+       //   arguments, all of the following hold:
+       //   - v is a proof dummy variable (doesn't occur in hypotheses or
+       //     conclusion
+       //   - v is a binding variable
+       //   - v does not occur free in the remnant.
+                if (!Array.isArray(ctx.definiens)) {
+                    throw new Error("Definiens is var: " + ctx.definiens);
+                }
+                var formalArgs = {};
+                var bindingFormalArg = null;
+                ctx.defSig.slice(1).forEach(function(v) {
+                    if (Array.isArray(v)) {
+                        throw new Error("Defthm formal arg term " + v);
+                    } else if (formalArgs.hasOwnProperty(v)) {
+                        throw new Error("Defthm repeated formal arg " + v);
+                    }
+                    formalArgs[v] = false;
+                    if (ctx.bindingVars[v]) {
+                        // Ghilbert allows two binding formal args if they are
+                        // different kinds, but we have no kinds here.
+                        if (bindingFormalArg) {
+                            throw new Error("Defthm has two binding vars: " +
+                                            bindingFormalArg + " and " + v);
+                        }
+                        bindingFormalArg = v;
+                    }
+                });
+
+                var remnantVars = {};
+                function checkVar(v) {
+                    if (!remnantVars[v]) {
+                        remnantVars[v] = 1;
+                        if (formalArgs.hasOwnProperty(v)) {
+                            formalArgs[v] = true;
+                        } else {
+                            if (ctx.nonDummyVars[v]) {
+                                throw new Error("Var " + v +
+                                                " is not a defthm arg or dummy");
+                            } else if (!ctx.bindingVars[v]) {
+                                throw new Error("Var " + v +
+                                                " is not a binding var");
+                            } else if (!assertNotFreeIn(ctx, v, ctx.definiens)) {
+                                throw new Error("Var " + v +
+                                                " appears free in remnant");
+                            }
+
+                        }
+                    }
+                }
+                visitVars(ctx, checkVar, ctx.definiens);
+            } // END defthm handling
+            
             // Check the accumulated freeness constraints against the declared
             // ones.
             var pairs = [];
@@ -658,7 +714,7 @@
                 throw new Error("Freeness constraint mismatch: calculated " +
                                 calculated + "; declared " + declared);
             }
-            return;
+            return ctx;
         default:
             throw new Error("Unknown cmd " + this.Tree.Cmd);
         }
