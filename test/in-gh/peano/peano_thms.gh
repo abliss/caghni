@@ -8553,12 +8553,12 @@ thm (sqrtlem5 () ()
   x 19.22i ax-mp
 )
 # number 19.0
-thm (sqrtlem1 ((A x)) ()
-  (-> (= y A)
-     (<-> (E. x (/\ (<= (* x x) y) (< y (* (S x) (S x)))))
+thm (sqrtlem1 ((A x) (B x)) ()
+  (-> (= B A)
+     (<-> (E. x (/\ (<= (* x x) B) (< B (* (S x) (S x)))))
           (E. x (/\ (<= (* x x) A) (< A (* (S x) (S x)))))))
-  (= y A) id (* x x) leeq2d
-  (= y A) id (* (S x) (S x)) lteq1d
+  (= B A) id (* x x) leeq2d
+  (= B A) id (* (S x) (S x)) lteq1d
   anbi12d x exbid
 )
 
@@ -8571,50 +8571,50 @@ thm (ancomd () (h (-> ph (/\ ps ch)))
 )
 
 # number 24.0
-thm (sqrtlem6 () ()
-  (-> (E. x (/\ (<= (* x x) y) (< y (* (S x) (S x)))))
-      (E. x (/\ (<= (* x x) (S y)) (< (S y) (* (S x) (S x))))))
+thm (sqrtlem6 ((A x)) ()
+  (-> (E. x (/\ (<= (* x x) A) (< A (* (S x) (S x)))))
+      (E. x (/\ (<= (* x x) (S A)) (< (S A) (* (S x) (S x))))))
 
-  # y < x' * x' <-> case A \/ case B
-  y (* (S x) (S x)) nnltp1let    (+ y (1)) (* (S x) (S x)) lefoo3     bitri
+  # A < x' * x' <-> case A \/ case B
+  A (* (S x) (S x)) nnltp1let    (+ A (1)) (* (S x) (S x)) lefoo3     bitri
 
   # spruce this up by adding (... and PH) to both sides
-  biimpi (<= (* x x) y) anim1i ancoms ancomd
+  biimpi (<= (* x x) A) anim1i ancoms ancomd
 
   # For MUCH later, to factor out the common AND
-  (<= (* x x) y)
-    (= (+ y (1)) (* (S x) (S x)))
-      (<= (+ (+ y (1)) (1)) (* (S x) (S x)))
+  (<= (* x x) A)
+    (= (+ A (1)) (* (S x) (S x)))
+      (<= (+ (+ A (1)) (1)) (* (S x) (S x)))
   andi
 
   # We don't need this AND term, but Case B does, so add it in here
-  (<= (* x x) y) (= (+ y (1)) (* (S x) (S x))) pm3.27
+  (<= (* x x) A) (= (+ A (1)) (* (S x) (S x))) pm3.27
 
   # Tuck this away for "later"...
   z (S x) tyex
 
-  # Case A -> x' * x' = y'
-  y a1suc eqcomi    (+ y (1)) (* (S x) (S x)) (S y)  eqeq1     mpbii
+  # Case A -> x' * x' = A'
+  A a1suc eqcomi    (+ A (1)) (* (S x) (S x)) (S A)  eqeq1     mpbii
 
-  # Case A -> x' * x' <= y'
+  # Case A -> x' * x' <= A'
   (* (S x) (S x)) leid
-  (= (* (S x) (S x)) (S y)) id (* (S x) (S x)) leeq2d mpbii
+  (= (* (S x) (S x)) (S A)) id (* (S x) (S x)) leeq2d mpbii
   # Introduce z as x'
-  (= z (S x)) id   (= z (S x)) id   muleq12d   (S y) leeq1d     biimprcd  syl
+  (= z (S x)) id   (= z (S x)) id   muleq12d   (S A) leeq1d     biimprcd  syl
 
 
   # x' < x''
   (+ (S x) (1)) leid   (S x) a1suc  (+ (S x) (1)) leeq2i  mpbir   (S x) (S (S x)) nnltp1let    mpbir
   # x' * x' < x'' * x''
   (< (S x) (S (S x))) pm4.24  mpbi (S x) (S (S x)) (S x) (S (S x)) ltmul  ax-mp
-  # Case A -> y' < x'' * x''
-  (= (* (S x) (S x)) (S y)) id (* (S (S x)) (S (S x))) lteq1d mpbii
-  (= z (S x)) id suceqd  (= z (S x)) id suceqd   muleq12d (S y) lteq2d
+  # Case A -> A' < x'' * x''
+  (= (* (S x) (S x)) (S A)) id (* (S (S x)) (S (S x))) lteq1d mpbii
+  (= z (S x)) id suceqd  (= z (S x)) id suceqd   muleq12d (S A) lteq2d
       biimprcd syl
 
   # Join it all up for case A
   jcad syl  z 19.21ai
-  z (= z (S x)) (/\ (<= (* z z) (S y)) (< (S y) (* (S z) (S z))))  19.22 syl
+  z (= z (S x)) (/\ (<= (* z z) (S A)) (< (S A) (* (S z) (S z))))  19.22 syl
   # ... and it's finally "later".
   mpi
   # Bring in the extra AND clause
@@ -8624,27 +8624,27 @@ thm (sqrtlem6 () ()
   # Tuck this away for "later"...
   z x tyex
 
-  # y <= y'
-  y (1) addge02t y a1suc y (1) addcom eqtr y leeq2i mpbir
-  # x*x <=y -> x*x <= y'
-  (* x x) y (S y) letr mpan2
+  # A <= A'
+  A (1) addge02t A a1suc A (1) addcom eqtr A leeq2i mpbir
+  # x*x <=y -> x*x <= A'
+  (* x x) A (S A) letr mpan2
 
-  # y + 1 + 1 < x' * x' -> y + 1 < x' * x'
-  (+ y (1)) (* (S x) (S x)) nnltp1let  biimpri
-  # ... -> y' < x' * x'
-  y a1suc  (* (S x) (S x))  lteq1i  sylibr
+  # A + 1 + 1 < x' * x' -> A + 1 < x' * x'
+  (+ A (1)) (* (S x) (S x)) nnltp1let  biimpri
+  # ... -> A' < x' * x'
+  A a1suc  (* (S x) (S x))  lteq1i  sylibr
 
   # Join up case B
   anim12i
   # Now to add the z
   # z=x -> z*z<=y' <-> x*x<=y'
-  z x z x muleq12 anidms (S y) leeq1d
-  # z=x -> y'<z'*z'<-> y'<x'*x'
-  z x pa_ax2 biimpi   z x pa_ax2 biimpi muleq12d (S y) lteq2d
+  z x z x muleq12 anidms (S A) leeq1d
+  # z=x -> A'<z'*z'<-> A'<x'*x'
+  z x pa_ax2 biimpi   z x pa_ax2 biimpi muleq12d (S A) lteq2d
   # put it all together
   anbi12d biimprcd syl
   z 19.21ai
-  z (= z x) (/\ (<= (* z z) (S y)) (< (S y) (* (S z) (S z))))  19.22  syl
+  z (= z x) (/\ (<= (* z z) (S A)) (< (S A) (* (S z) (S z))))  19.22  syl
   # And it's finally "later" again.
   mpi
 
@@ -8659,8 +8659,8 @@ thm (sqrtlem6 () ()
   # Existential plumbing
   x  19.22i 19.9d
   # alpha switch
-  z x z x muleq12 anidms (S y) leeq1d
-  z x pa_ax2 biimpi   z x pa_ax2 biimpi muleq12d (S y) lteq2d
+  z x z x muleq12 anidms (S A) leeq1d
+  z x pa_ax2 biimpi   z x pa_ax2 biimpi muleq12d (S A) lteq2d
   anbi12d exalpha sylib
 )
 
@@ -10955,13 +10955,13 @@ thm (dividesmuli () (hyp (| A B)) (| A (* B C))
 
 # number 47.0
 # Induction tool for exfactorial
-thm (exfactorial.1 ((A x) (A y)) ()
-    (-> (= z A)
-        (<-> (E. x (A. y (-> (<= (S y) (S z)) (| (S y) (S (S x))))))
+thm (exfactorial.1 ((A x y) (B x y)) ()
+    (-> (= B A)
+        (<-> (E. x (A. y (-> (<= (S y) (S B)) (| (S y) (S (S x))))))
              (E. x (A. y (-> (<= (S y) (S A)) (| (S y) (S (S x))))))))
 
-   (= z A) id  suceqd
-   (= (S z) (S A)) id (S y) leeq2d syl
+   (= B A) id  suceqd
+   (= (S B) (S A)) id (S y) leeq2d syl
    (| (S y) (S (S x))) imbi1d
    y 19.21ai
    19.15d
@@ -10970,13 +10970,13 @@ thm (exfactorial.1 ((A x) (A y)) ()
 
 # number 47.0
 # Induction tool for exfactorial
-thm (exfactoriallem1 ((A x) (A y)) ()
-    (-> (= z A)
-        (<-> (E. x (A. y (-> (<= (S (S y)) (S (S z))) (| (S (S y)) (S (S x))))))
+thm (exfactoriallem1 ((A x y) (B x y)) ()
+    (-> (= B A)
+        (<-> (E. x (A. y (-> (<= (S (S y)) (S (S B))) (| (S (S y)) (S (S x))))))
              (E. x (A. y (-> (<= (S (S y)) (S (S A))) (| (S (S y)) (S (S x))))))))
 
-   (= z A) id  suceqd      (= (S z) (S A)) id  suceqd  syl
-   (= (S (S z)) (S (S A))) id (S (S y)) leeq2d syl
+   (= B A) id  suceqd      (= (S B) (S A)) id  suceqd  syl
+   (= (S (S B)) (S (S A))) id (S (S y)) leeq2d syl
    (| (S (S y)) (S (S x))) imbi1d
    y 19.21ai
    19.15d
@@ -11092,125 +11092,125 @@ thm (exfactoriallem4 ()
 )
 # number 54.0
 # Inductive step for exfactorial
-thm (exfactorial.3 () ()
-  (-> (E. x (A. y (-> (<= (S y) (S z)) (| (S y) (S (S x))))))
-      (E. x (A. y (-> (<= (S y) (S (S z))) (| (S y) (S (S x)))))))
+thm (exfactorial.3 ((A x y)) ()
+  (-> (E. x (A. y (-> (<= (S y) (S A)) (| (S y) (S (S x))))))
+      (E. x (A. y (-> (<= (S y) (S (S A))) (| (S y) (S (S x)))))))
 
   # Set up the two cases
-    (S y) (S (S z)) lefoo3 biimpi
+    (S y) (S (S A)) lefoo3 biimpi
 
   # first case: y' = z'''.  This becomes y' | z''' * x''
-  (S (S z)) dividessym    (S (S z)) (S (S z)) (S (S x)) dividesmul ax-mp
-  (S y) (S (S z))  (* (S (S z)) (S (S x))) divideseq1  mpbiri
-  (<= (+ (S y) (1)) (S (S z))) orim1i syl
+  (S (S A)) dividessym    (S (S A)) (S (S A)) (S (S x)) dividesmul ax-mp
+  (S y) (S (S A))  (* (S (S A)) (S (S x))) divideseq1  mpbiri
+  (<= (+ (S y) (1)) (S (S A))) orim1i syl
 
   # Second case: y'' + 1 <= z'''.  This becomes y'' <= z''
-  (S y) (S z) (1) leadd1
-  (S z) a1suc   (+ (S y) (1)) leeq2i  bitr4i biimpri
-  (| (S y) (* (S (S z)) (S (S x)))) orim2i syl
+  (S y) (S A) (1) leadd1
+  (S A) a1suc   (+ (S y) (1)) leeq2i  bitr4i biimpri
+  (| (S y) (* (S (S A)) (S (S x)))) orim2i syl
   # Handle second case by adding an assumption
-    (S y) (S (S x)) (S (S z))  dividesmul
-      (S (S x)) (S (S z)) mulcom
-    (* (S (S x)) (S (S z))) (* (S (S z)) (S (S x))) (S y) divideseq2  ax-mp sylib
+    (S y) (S (S x)) (S (S A))  dividesmul
+      (S (S x)) (S (S A)) mulcom
+    (* (S (S x)) (S (S A))) (* (S (S A)) (S (S x))) (S y) divideseq2  ax-mp sylib
   exfactoriallem4
 
   # So (z''' * x'') is our new x''... we need to show it is at least 2
-    (S (S z)) (S x) pa_ax6
-    (* (S (S z)) (S x)) (S z) pa_ax4 eqtr
-      (* (S (S z)) (S x)) z pa_ax4
-      (+ (* (S (S z)) (S x)) (S z)) (S (+ (* (S (S z)) (S x)) z)) pa_ax2 mpbi
+    (S (S A)) (S x) pa_ax6
+    (* (S (S A)) (S x)) (S A) pa_ax4 eqtr
+      (* (S (S A)) (S x)) A pa_ax4
+      (+ (* (S (S A)) (S x)) (S A)) (S (+ (* (S (S A)) (S x)) A)) pa_ax2 mpbi
     eqtr
-      (* (S (S z)) (S (S x))) (S (S (+ (* (S (S z)) (S x)) z))) (S y) divideseq2
+      (* (S (S A)) (S (S x))) (S (S (+ (* (S (S A)) (S x)) A))) (S y) divideseq2
     ax-mp
-  biimpi  (<= (S y) (S (S z))) imim2i syl
+  biimpi  (<= (S y) (S (S A))) imim2i syl
 
   # Bundle up...
   y 19.20i
   x 19.22i
 
   # for later still
-    x' (+ (* (S (S z)) (S x)) z) tyex
-  # Need an substitution: x -> (z''' * x' + z')
-      x' (+ (* (S (S z)) (S x)) z) pa_ax2 biimpi suceqd
-        (S (S x')) (S (S (+ (* (S (S z)) (S x)) z))) (S y) divideseq2  biimprd
-        (| (S y) (S (S (+ (* (S (S z)) (S x)) z)))) (| (S y) (S (S x'))) (<= (S y) (S (S z))) imim2 syl
+    x' (+ (* (S (S A)) (S x)) A) tyex
+  # Need an substitution: x -> (z''' * x' + A')
+      x' (+ (* (S (S A)) (S x)) A) pa_ax2 biimpi suceqd
+        (S (S x')) (S (S (+ (* (S (S A)) (S x)) A))) (S y) divideseq2  biimprd
+        (| (S y) (S (S (+ (* (S (S A)) (S x)) A)))) (| (S y) (S (S x'))) (<= (S y) (S (S A))) imim2 syl
         y 19.21ai
-        y (-> (<= (S y) (S (S z))) (| (S y) (S (S (+ (* (S (S z)) (S x)) z))))) (-> (<= (S y) (S (S z))) (| (S y) (S (S x')))) ax-alim syl
+        y (-> (<= (S y) (S (S A))) (| (S y) (S (S (+ (* (S (S A)) (S x)) A))))) (-> (<= (S y) (S (S A))) (| (S y) (S (S x')))) ax-alim syl
       syl
       com12
       x' 19.22d
     mpi
     x 19.22i
   syl
-  x (E. x' (A. y (-> (<= (S y) (S (S z))) (| (S y) (S (S x')))))) 19.9 sylib
+  x (E. x' (A. y (-> (<= (S y) (S (S A))) (| (S y) (S (S x')))))) 19.9 sylib
   # now alpha change x' back to x
     x' x pa_ax2 biimpi suceqd
     (S (S x')) (S (S x)) (S y) divideseq2 biimpd  syl
-    (| (S y) (S (S x'))) (| (S y) (S (S x))) (<= (S y) (S (S z))) imim2 syl
+    (| (S y) (S (S x'))) (| (S y) (S (S x))) (<= (S y) (S (S A))) imim2 syl
     y 19.21ai
-    y (-> (<= (S y) (S (S z))) (| (S y) (S (S x')))) (-> (<= (S y) (S (S z))) (| (S y) (S (S x)))) ax-alim syl
+    y (-> (<= (S y) (S (S A))) (| (S y) (S (S x')))) (-> (<= (S y) (S (S A))) (| (S y) (S (S x)))) ax-alim syl
     exalpha1
   syl
 )
 # number 54.0
 # Inductive step for exfactorial
-thm (exfactoriallem3 () ()
-  (-> (E. x (A. y (-> (<= (S (S y)) (S (S z))) (| (S (S y)) (S (S x))))))
-      (E. x (A. y (-> (<= (S (S y)) (S (S (S z)))) (| (S (S y)) (S (S x)))))))
+thm (exfactoriallem3 ((A x y)) ()
+  (-> (E. x (A. y (-> (<= (S (S y)) (S (S A))) (| (S (S y)) (S (S x))))))
+      (E. x (A. y (-> (<= (S (S y)) (S (S (S A)))) (| (S (S y)) (S (S x)))))))
 
   # Set up the two cases
-    (S (S y)) (S (S (S z))) lefoo3 biimpi
+    (S (S y)) (S (S (S A))) lefoo3 biimpi
 
-  # first case: y'' = z'''.  This becomes y'' | z''' * x''
-  (S (S (S z))) dividessym    (S (S (S z))) (S (S (S z))) (S (S x)) dividesmul ax-mp
-  (S (S y)) (S (S (S z)))  (* (S (S (S z))) (S (S x))) divideseq1  mpbiri
-  (<= (+ (S (S y)) (1)) (S (S (S z)))) orim1i syl
+  # first case: y'' = A'''.  This becomes y'' | A''' * x''
+  (S (S (S A))) dividessym    (S (S (S A))) (S (S (S A))) (S (S x)) dividesmul ax-mp
+  (S (S y)) (S (S (S A)))  (* (S (S (S A))) (S (S x))) divideseq1  mpbiri
+  (<= (+ (S (S y)) (1)) (S (S (S A)))) orim1i syl
 
-  # Second case: y'' + 1 <= z'''.  This becomes y'' <= z''
-  (S (S y)) (S (S z)) (1) leadd1
-  (S (S z)) a1suc   (+ (S (S y)) (1)) leeq2i  bitr4i biimpri
-  (| (S (S y)) (* (S (S (S z))) (S (S x)))) orim2i syl
+  # Second case: y'' + 1 <= A'''.  This becomes y'' <= A''
+  (S (S y)) (S (S A)) (1) leadd1
+  (S (S A)) a1suc   (+ (S (S y)) (1)) leeq2i  bitr4i biimpri
+  (| (S (S y)) (* (S (S (S A))) (S (S x)))) orim2i syl
   # Handle second case by adding an assumption
-    (S (S y)) (S (S x)) (S (S (S z)))  dividesmul
-      (S (S x)) (S (S (S z))) mulcom
-    (* (S (S x)) (S (S (S z)))) (* (S (S (S z))) (S (S x))) (S (S y)) divideseq2  ax-mp sylib
+    (S (S y)) (S (S x)) (S (S (S A)))  dividesmul
+      (S (S x)) (S (S (S A))) mulcom
+    (* (S (S x)) (S (S (S A)))) (* (S (S (S A))) (S (S x))) (S (S y)) divideseq2  ax-mp sylib
   exfactoriallem4
 
   # So (z''' * x'') is our new x''... we need to show it is at least 2
-    (S (S (S z))) (S x) pa_ax6
-    (* (S (S (S z))) (S x)) (S (S z)) pa_ax4 eqtr
-      (* (S (S (S z))) (S x)) (S z) pa_ax4
-      (+ (* (S (S (S z))) (S x)) (S (S z))) (S (+ (* (S (S (S z))) (S x)) (S z))) pa_ax2 mpbi
+    (S (S (S A))) (S x) pa_ax6
+    (* (S (S (S A))) (S x)) (S (S A)) pa_ax4 eqtr
+      (* (S (S (S A))) (S x)) (S A) pa_ax4
+      (+ (* (S (S (S A))) (S x)) (S (S A))) (S (+ (* (S (S (S A))) (S x)) (S A))) pa_ax2 mpbi
     eqtr
-      (* (S (S (S z))) (S (S x))) (S (S (+ (* (S (S (S z))) (S x)) (S z)))) (S (S y)) divideseq2
+      (* (S (S (S A))) (S (S x))) (S (S (+ (* (S (S (S A))) (S x)) (S A)))) (S (S y)) divideseq2
     ax-mp
-  biimpi  (<= (S (S y)) (S (S (S z)))) imim2i syl
+  biimpi  (<= (S (S y)) (S (S (S A)))) imim2i syl
 
   # Bundle up...
   y 19.20i
   x 19.22i
 
   # for later still
-    x' (+ (* (S (S (S z))) (S x)) (S z)) tyex
-  # Need an substitution: x -> (z''' * x' + z')
-      x' (+ (* (S (S (S z))) (S x)) (S z)) pa_ax2 biimpi suceqd
-        (S (S x')) (S (S (+ (* (S (S (S z))) (S x)) (S z)))) (S (S y)) divideseq2  biimprd
-        (| (S (S y)) (S (S (+ (* (S (S (S z))) (S x)) (S z))))) (| (S (S y)) (S (S x'))) (<= (S (S y)) (S (S (S z)))) imim2 syl
+    x' (+ (* (S (S (S A))) (S x)) (S A)) tyex
+  # Need an substitution: x -> (z''' * x' + A')
+      x' (+ (* (S (S (S A))) (S x)) (S A)) pa_ax2 biimpi suceqd
+        (S (S x')) (S (S (+ (* (S (S (S A))) (S x)) (S A)))) (S (S y)) divideseq2  biimprd
+        (| (S (S y)) (S (S (+ (* (S (S (S A))) (S x)) (S A))))) (| (S (S y)) (S (S x'))) (<= (S (S y)) (S (S (S A)))) imim2 syl
         y 19.21ai
-        y (-> (<= (S (S y)) (S (S (S z)))) (| (S (S y)) (S (S (+ (* (S (S (S z))) (S x)) (S z)))))) (-> (<= (S (S y)) (S (S (S z)))) (| (S (S y)) (S (S x')))) ax-alim syl
+        y (-> (<= (S (S y)) (S (S (S A)))) (| (S (S y)) (S (S (+ (* (S (S (S A))) (S x)) (S A)))))) (-> (<= (S (S y)) (S (S (S A)))) (| (S (S y)) (S (S x')))) ax-alim syl
       syl
       com12
       x' 19.22d
     mpi
     x 19.22i
   syl
-  x (E. x' (A. y (-> (<= (S (S y)) (S (S (S z)))) (| (S (S y)) (S (S x')))))) 19.9 sylib
+  x (E. x' (A. y (-> (<= (S (S y)) (S (S (S A)))) (| (S (S y)) (S (S x')))))) 19.9 sylib
   # now alpha change x' back to x
     x' x pa_ax2 biimpi suceqd
     (S (S x')) (S (S x)) (S (S y)) divideseq2 biimpd  syl
-    (| (S (S y)) (S (S x'))) (| (S (S y)) (S (S x))) (<= (S (S y)) (S (S (S z)))) imim2 syl
+    (| (S (S y)) (S (S x'))) (| (S (S y)) (S (S x))) (<= (S (S y)) (S (S (S A)))) imim2 syl
     y 19.21ai
-    y (-> (<= (S (S y)) (S (S (S z)))) (| (S (S y)) (S (S x')))) (-> (<= (S (S y)) (S (S (S z)))) (| (S (S y)) (S (S x)))) ax-alim syl
+    y (-> (<= (S (S y)) (S (S (S A)))) (| (S (S y)) (S (S x')))) (-> (<= (S (S y)) (S (S (S A)))) (| (S (S y)) (S (S x)))) ax-alim syl
     exalpha1
   syl
 )
@@ -12481,11 +12481,11 @@ nsyl4    orri
 )
 # number 62.0
 # Induction tool
-thm (primedivisor.2 ((A x)) ()
-    (-> (= y A) (<-> (E. x (/\ (prime (S (S x))) (| (S (S x)) (S (S y)))))
+thm (primedivisor.2 ((A x) (B x)) ()
+    (-> (= B A) (<-> (E. x (/\ (prime (S (S x))) (| (S (S x)) (S (S B)))))
                      (E. x (/\ (prime (S (S x))) (| (S (S x)) (S (S A)))))))
-    (= y A)  id    suceqd    suceqd
-    (S (S y))  (S (S A)) (S (S x))  divideseq2    syl
+    (= B A)  id    suceqd    suceqd
+    (S (S B))  (S (S A)) (S (S x))  divideseq2    syl
     (prime (S (S x)))  anbi2d
     x exbid
 )
@@ -13198,123 +13198,123 @@ thm (BiReplaceImp1Ex1An1Not0Ex1Not0 () (
     BiReplaceImp1Ex1An1Not0Ex1
 )
 
-thm (hasPrimeDivisor () ()  (-> (/\ (-. (prime x)) (/\ (-. (<= x (1))) (-. (E. y (/\ (| y x) (prime y)))))) (E. z (/\ (< z x) (-. (E. y (/\ (| y z) (prime y)))))))
-  (/\ (-. (prime x)) (/\ (-. (<= x (1))) (-. (E. y (/\ (| y x) (prime y)))))) id
+thm (hasPrimeDivisor ((A y z)) ()  (-> (/\ (-. (prime A)) (/\ (-. (<= A (1))) (-. (E. y (/\ (| y A) (prime y)))))) (E. z (/\ (< z A) (-. (E. y (/\ (| y z) (prime y)))))))
+  (/\ (-. (prime A)) (/\ (-. (<= A (1))) (-. (E. y (/\ (| y A) (prime y)))))) id
   
   ## <d 'Associative Property '>
-    (-. (prime x)) (-. (<= x (1))) (-. (E. y (/\ (| y x) (prime y)))) anass
+    (-. (prime A)) (-. (<= A (1))) (-. (E. y (/\ (| y A) (prime y)))) anass
     ## <d 'Commutative Property'>
-      (/\ (/\ (-. (prime x)) (-. (<= x (1)))) (-. (E. y (/\ (| y x) (prime y))))) (/\ (-. (prime x)) (/\ (-. (<= x (1))) (-. (E. y (/\ (| y x) (prime y)))))) bicom
+      (/\ (/\ (-. (prime A)) (-. (<= A (1)))) (-. (E. y (/\ (| y A) (prime y))))) (/\ (-. (prime A)) (/\ (-. (<= A (1))) (-. (E. y (/\ (| y A) (prime y)))))) bicom
       mpbi
     ## </d 'Commutative Property'>
     sylib
   ## </d 'Associative Property '>
-  x z dfprime1lem2    
+  A z dfprime1lem2    
   ## <d 'Import-Export Theorem '>
-    (-. (prime x)) (-. (<= x (1))) (E. z (/\ (| z x) (/\ (< (1) z) (< z x)))) impexp
+    (-. (prime A)) (-. (<= A (1))) (E. z (/\ (| z A) (/\ (< (1) z) (< z A)))) impexp
     ## <d 'Commutative Property'>
-      (-> (/\ (-. (prime x)) (-. (<= x (1)))) (E. z (/\ (| z x) (/\ (< (1) z) (< z x))))) (-> (-. (prime x)) (-> (-. (<= x (1))) (E. z (/\ (| z x) (/\ (< (1) z) (< z x)))))) bicom
+      (-> (/\ (-. (prime A)) (-. (<= A (1)))) (E. z (/\ (| z A) (/\ (< (1) z) (< z A))))) (-> (-. (prime A)) (-> (-. (<= A (1))) (E. z (/\ (| z A) (/\ (< (1) z) (< z A)))))) bicom
       mpbi
     ## </d 'Commutative Property'>
     mpbi
   ## </d 'Import-Export Theorem '>
   
   ImpReplaceImp1An0
-  (< (1) z) (< z x) pm3.27
+  (< (1) z) (< z A) pm3.27
   
   ImpReplaceImp1An0Ex1An1
 
   ## <d 'Commutative Property '>
-    (| z x) (< z x) ancom
+    (| z A) (< z A) ancom
     BiReplaceImp1An0Ex1
   ## </d 'Commutative Property '>
-  (-. (E. y (/\ (| y x) (prime y)))) z alnfi  
-  (E. z (/\ (< z x) (| z x))) anim2i
+  (-. (E. y (/\ (| y A) (prime y)))) z alnfi  
+  (E. z (/\ (< z A) (| z A))) anim2i
   
   syl
   
   ## <d 'Combine Universial and Existence Quantifiers '>
-    z (/\ (< z x) (| z x)) (-. (E. y (/\ (| y x) (prime y)))) 19.29r
+    z (/\ (< z A) (| z A)) (-. (E. y (/\ (| y A) (prime y)))) 19.29r
     syl
   ## </d 'Combine Universial and Existence Quantifiers '>
   
   ## <d 'Associative Property '>
-    (< z x) (| z x) (-. (E. y (/\ (| y x) (prime y)))) anass
+    (< z A) (| z A) (-. (E. y (/\ (| y A) (prime y)))) anass
     BiReplaceImp1Ex1
   ## </d 'Associative Property '>
 
-  (| z x) y alnfi  
+  (| z A) y alnfi  
   ImpReplaceImp1Ex1An1An0
   
   ## <d 'Definition of ∃ '>
-    y (/\ (| y x) (prime y)) df-ex
+    y (/\ (| y A) (prime y)) df-ex
       BiReplaceImp1Ex1An1An1Not0
   ## </d 'Definition of ∃ '>
   
   ## <d 'Double Negative '>
-    (A. y (-. (/\ (| y x) (prime y)))) notnotr
+    (A. y (-. (/\ (| y A) (prime y)))) notnotr
     BiReplaceImp1Ex1An1An1
   ## </d 'Double Negative '>
   
   ## <d 'Distributive Property '>
-    y (| z x) (-. (/\ (| y x) (prime y))) 19.26
+    y (| z A) (-. (/\ (| y A) (prime y))) 19.26
     ## <d 'Commutative Property'>
-      (A. y (/\ (| z x) (-. (/\ (| y x) (prime y))))) (/\ (A. y (| z x)) (A. y (-. (/\ (| y x) (prime y))))) bicom
+      (A. y (/\ (| z A) (-. (/\ (| y A) (prime y))))) (/\ (A. y (| z A)) (A. y (-. (/\ (| y A) (prime y))))) bicom
       mpbi
     ## </d 'Commutative Property'>
     BiReplaceImp1Ex1An1
   ## </d 'Distributive Property '>
 
-  y z x dividestr  
+  y z A dividestr  
   ## <d 'Commutative Property '>
-    (| y z) (| z x) ancom
+    (| y z) (| z A) ancom
     sylbi2
   ## </d 'Commutative Property '>
   
   ## <d 'Import-Export Theorem '>
-    (| z x) (| y z) (| y x) impexp
+    (| z A) (| y z) (| y A) impexp
     mpbi
   ## </d 'Import-Export Theorem '>
   
     ImpReplaceImp1Ex1An1Al1An0
   
   ## <d 'Negate Both Sides '>
-    (| y z) (| y x) con34b
+    (| y z) (| y A) con34b
       BiReplaceImp1Ex1An1Al1An0
   ## </d 'Negate Both Sides '>
   
   ## <d 'Commutative Property '>
-    (-> (-. (| y x)) (-. (| y z))) (-. (/\ (| y x) (prime y))) ancom
+    (-> (-. (| y A)) (-. (| y z))) (-. (/\ (| y A) (prime y))) ancom
     BiReplaceImp1Ex1An1Al1
   ## </d 'Commutative Property '>
   
   ## <d 'DeMorgan's Law '>
-    (| y x) (prime y) anor
+    (| y A) (prime y) anor
       BiReplaceImp1Ex1An1Al1An0Not0
   ## </d 'DeMorgan's Law '>
   
   ## <d 'Double Negative '>
-    (\/ (-. (| y x)) (-. (prime y))) notnotr
+    (\/ (-. (| y A)) (-. (prime y))) notnotr
     BiReplaceImp1Ex1An1Al1An0
   ## </d 'Double Negative '>
   
   ## <d 'Distributive Property '>
-    (-. (| y x)) (-. (prime y)) (-> (-. (| y x)) (-. (| y z))) andir
+    (-. (| y A)) (-. (prime y)) (-> (-. (| y A)) (-. (| y z))) andir
     BiReplaceImp1Ex1An1Al1
   ## </d 'Distributive Property '>
   
   ## <d 'Introduce conjunct as antecedent '>
-    (-. (| y x)) (-. (| y z)) abai
+    (-. (| y A)) (-. (| y z)) abai
     ## <d 'Commutative Property'>
-      (/\ (-. (| y x)) (-. (| y z))) (/\ (-. (| y x)) (-> (-. (| y x)) (-. (| y z)))) bicom
+      (/\ (-. (| y A)) (-. (| y z))) (/\ (-. (| y A)) (-> (-. (| y A)) (-. (| y z)))) bicom
       mpbi
     ## </d 'Commutative Property'>
       BiReplaceImp1Ex1An1Al1Or0
   ## </d 'Introduce conjunct as antecedent '>
-  (-. (| y x)) (-. (| y z)) pm3.27
+  (-. (| y A)) (-. (| y z)) pm3.27
   
     ImpReplaceImp1Ex1An1Al1Or0
-   (-. (prime y)) (-> (-. (| y x)) (-. (| y z))) pm3.26
+   (-. (prime y)) (-> (-. (| y A)) (-. (| y z))) pm3.26
   
     ImpReplaceImp1Ex1An1Al1Or1
   
@@ -13759,68 +13759,68 @@ thm (minex.2.2 ((S w) (A w)) () (-> (/\ (e. A S) (A. w (-> (e. w S) (<= A w)))) 
     A  ax-iota    syl5eqr
 )
 
-thm (minex2.2 ((S w)) () (-> (/\ (e. w' S) (A. w (-> (e. w S) (<= w' w)))) (= w' (min S)))
-    x  w'  S  ax-eleq1
-      (= x w')  id    w  leeq1d    (e. w S)  imbi2d   w  19.21ai
-      w  (-> (e. w S) (<= x w))  (-> (e. w S) (<= w' w))  19.15    syl
+thm (minex2.2 ((S w) (A w)) () (-> (/\ (e. A S) (A. w (-> (e. w S) (<= A w)))) (= A (min S)))
+    x  A  S  ax-eleq1
+      (= x A)  id    w  leeq1d    (e. w S)  imbi2d   w  19.21ai
+      w  (-> (e. w S) (<= x w))  (-> (e. w S) (<= A w))  19.15    syl
     anbi12d    biimprcd
-      (e. w' S)  (A. w (-> (e. w S) (<= w' w)))  ancom  (/\ (e. x S) (A. w (-> (e. w S) (<= x w))))  anbi2i (e. x S)  (A. w (-> (e. w S) (<= x w)))  (A. w (-> (e. w S) (<= w' w)))  (e. w' S)  an4    bitri       biimpi
-      w'  S  w x minex.2.1   ancoms    (/\ (e. x S) (A. w (-> (e. w S) (<= w' w))))  anim2i   syl
-      x  S  w w' minex.2.1  (<= x w')  anim1i    syl
-      w'  x  lesym   sylibr    eqcomd       expcom
+      (e. A S)  (A. w (-> (e. w S) (<= A w)))  ancom  (/\ (e. x S) (A. w (-> (e. w S) (<= x w))))  anbi2i (e. x S)  (A. w (-> (e. w S) (<= x w)))  (A. w (-> (e. w S) (<= A w)))  (e. A S)  an4    bitri       biimpi
+      A  S  w x minex.2.1   ancoms    (/\ (e. x S) (A. w (-> (e. w S) (<= A w))))  anim2i   syl
+      x  S  w A minex.2.1  (<= x A)  anim1i    syl
+      A  x  lesym   sylibr    eqcomd       expcom
     impbid
 
     x  19.21ai
-    x  (= x w')  (/\ (e. x S) (A. w (-> (e. w S) (<= x w))))  abbi2    syl
-    ({|} x (= x w'))  ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))  ax-iotaeq    syl
+    x  (= x A)  (/\ (e. x S) (A. w (-> (e. w S) (<= x w))))  abbi2    syl
+    ({|} x (= x A))  ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))  ax-iotaeq    syl
     S  x  w  df-min     syl6eqr
-    w' x  df-sn  ({} w')  ({|} x (= x w'))  ax-iotaeq    ax-mp       syl5eq
-    w'  ax-iota    syl5eqr
+    A x  df-sn  ({} A)  ({|} x (= x A))  ax-iotaeq    ax-mp       syl5eq
+    A  ax-iota    syl5eqr
 )
 
-thm (minex.2 ((S w)) ()
-    (-> (A. w (-> (<= w z)
+thm (minex.2 ((S w) (A w)) ()
+    (-> (A. w (-> (<= w A)
       (-> (e. w S) (/\ (e. (min S) S)
                                 (<= (min S) w)))))
-      (-> (e. (S z) S) (/\ (e. (min S) S)
-                                (<= (min S) (S z)))))
+      (-> (e. (S A) S) (/\ (e. (min S) S)
+                                (<= (min S) (S A)))))
 ### Please excuse this bit of time-travel.
-(<= w z) (e. w S)  (/\ (e. (min S) S) (<= (min S) w))  imdistan  biimpi
-  (<= w z)  (/\ (e. (min S) S) (<= (min S) w))  ancom  biimpi z  (1)  addge01t    z  a1suc  z  leeq2i   mpbir
-w  z  (S z)  letr  ancoms  mpan  (/\ (e. (min S) S) (<= (min S) w))  anim2i  syl  syl6  ancomsd
+(<= w A) (e. w S)  (/\ (e. (min S) S) (<= (min S) w))  imdistan  biimpi
+  (<= w A)  (/\ (e. (min S) S) (<= (min S) w))  ancom  biimpi A  (1)  addge01t    A  a1suc  A  leeq2i   mpbir
+w  A  (S A)  letr  ancoms  mpan  (/\ (e. (min S) S) (<= (min S) w))  anim2i  syl  syl6  ancomsd
 w 19.20i
 ###
 
 
-# Case 1:  z' is in fact  min S.  This one is easy.
-#  S  y  z  df-min    (S z)  eqeq2i    biimpi  (e. (S z) S)  a1d
-(S z)  (min S)  S  ax-eleq1  biimpd
-    (S z)  leid    (= (S z) (min S)) id  (S z)  leeq1d    mpbii    (e. (S z) S)  a1d
+# Case 1:  A' is in fact  min S.  This one is easy.
+#  S  y  A  df-min    (S A)  eqeq2i    biimpi  (e. (S A) S)  a1d
+(S A)  (min S)  S  ax-eleq1  biimpd
+    (S A)  leid    (= (S A) (min S)) id  (S A)  leeq1d    mpbii    (e. (S A) S)  a1d
 jcad
 # Tack this on for later
-(-> (e. (S z) S) (E. w (/\ (e. w S) (<= w z))))  orcd
+(-> (e. (S A) S) (E. w (/\ (e. w S) (<= w A))))  orcd
 
-# Case 2: z' is in S but NOT the min.
+# Case 2: A' is in S but NOT the min.
 # What follows would be a lot more readable without all the mandhyps!
-  S  x  w  df-min  (S z)  eqeq2i  notbii   biimpi
-  ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))  ({} (S z))  ax-iotaeq    (S z)  ax-iota   syl6eq   eqcomd   con3i    syl
-  ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))  ({} (S z))  w'  df-seq  notbii    biimpi   syl
-  (<-> (e. w' ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))) (e. w' ({} (S z))))  notnot    biimpri    w'  19.20i   con3i    syl
-  w'  (-. (<-> (e. w' ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))) (e. w' ({} (S z)))))  df-ex    biimpri    syl
-  w'  (S z)  elsnc    (e. w' ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w))))))  bibi2i    notbii   w'  exbii    sylib
+  S  x  w  df-min  (S A)  eqeq2i  notbii   biimpi
+  ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))  ({} (S A))  ax-iotaeq    (S A)  ax-iota   syl6eq   eqcomd   con3i    syl
+  ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))  ({} (S A))  w'  df-seq  notbii    biimpi   syl
+  (<-> (e. w' ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))) (e. w' ({} (S A))))  notnot    biimpri    w'  19.20i   con3i    syl
+  w'  (-. (<-> (e. w' ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w)))))) (e. w' ({} (S A)))))  df-ex    biimpri    syl
+  w'  (S A)  elsnc    (e. w' ({|} x (/\ (e. x S) (A. w (-> (e. w S) (<= x w))))))  bibi2i    notbii   w'  exbii    sylib
     x  w'  S   ax-eleq1
       (= x  w')  id    w  leeq1d    (e. w S)  imbi2d     w  19.21ai    w  (-> (e. w S) (<= x w))  (-> (e. w S) (<= w' w)) 19.15   syl
-  anbi12d    elab    (= w' (S z))  bibi1i    notbii  w'  exbii  sylib
-  (/\ (e. w' S) (A. w (-> (e. w S) (<= w' w))))  (= w' (S z))  xor     w'  exbii    sylib
-    # We now have z' != min S -> (case A) \/ (case B).  Let's reduce case B to something we like.
-    w'  (S z)  S  ax-eleq1
-      (= w' (S z))  id  w  leeq1d   (e. w S)  imbi2d     w  19.21ai    19.15d       anbi12d    notbid  biimpd
-      (e. (S z) S)  (A. w (-> (e. w S) (<= (S z) w)))  pm3.13    syl6   imp
-      (e. (S z) S)  (-. (A. w (-> (e. w S) (<= (S z) w))))  imor    sylibr
-        (-> (e. w S) (<= (S z) w))  notnot2  w  19.20i  con3i  w  (-. (-> (e. w S) (<= (S z) w)))  df-ex      sylibr
-        (e. w S)  (<= (S z) w)  pm4.61    biimpi  (S z)  w  lenltt       con2bii    biimpri   w  z  lesuc    sylib  (e. w S)  anim2i    syl   w  19.22i    syl
+  anbi12d    elab    (= w' (S A))  bibi1i    notbii  w'  exbii  sylib
+  (/\ (e. w' S) (A. w (-> (e. w S) (<= w' w))))  (= w' (S A))  xor     w'  exbii    sylib
+    # We now have A' != min S -> (case A) \/ (case B).  Let's reduce case B to something we like.
+    w'  (S A)  S  ax-eleq1
+      (= w' (S A))  id  w  leeq1d   (e. w S)  imbi2d     w  19.21ai    19.15d       anbi12d    notbid  biimpd
+      (e. (S A) S)  (A. w (-> (e. w S) (<= (S A) w)))  pm3.13    syl6   imp
+      (e. (S A) S)  (-. (A. w (-> (e. w S) (<= (S A) w))))  imor    sylibr
+        (-> (e. w S) (<= (S A) w))  notnot2  w  19.20i  con3i  w  (-. (-> (e. w S) (<= (S A) w)))  df-ex      sylibr
+        (e. w S)  (<= (S A) w)  pm4.61    biimpi  (S A)  w  lenltt       con2bii    biimpri   w  A  lesuc    sylib  (e. w S)  anim2i    syl   w  19.22i    syl
       syl6
-    (/\ (/\ (e. w' S) (A. w (-> (e. w S) (<= w' w)))) (-. (= w' (S z))))  orim2i    w'  19.22i       w'  (/\ (/\ (e. w' S) (A. w (-> (e. w S) (<= w' w)))) (-. (= w' (S z))))  (-> (e. (S z) S) (E. w (/\ (e. w S) (<= w z))))  exor2    sylib  syl
+    (/\ (/\ (e. w' S) (A. w (-> (e. w S) (<= w' w)))) (-. (= w' (S A))))  orim2i    w'  19.22i       w'  (/\ (/\ (e. w' S) (A. w (-> (e. w S) (<= w' w)))) (-. (= w' (S A))))  (-> (e. (S A) S) (E. w (/\ (e. w S) (<= w A))))  exor2    sylib  syl
     # Okay, now let's work with case A.  First show that w' is in fact min S.
     w'  S  w  minex.2.2
     # Ok, now work out the consequences of w' = min S
@@ -13831,24 +13831,24 @@ jcad
     pm4.71ri  biimpi   (e. w' S)  (A. w (-> (e. w S) (<= w' w)))  pm3.27   (/\ (e. (min S) S) (= w' (min S)))  anim2i      syl
     (e. (min S) S)  (= w' (min S))  (A. w (-> (e. w S) (<= w' w)))  anass  sylib
       (= w' (min S))  id    w leeq1d  (e. w S)  imbi2d    w  19.21ai    19.15d    biimpd   imp
-    (S z) S  w  (min S)  minex.2.1     impexpi    syl       (e. (min S) S)  anim2i    syl
-    (e. (min S) S)  (e. (S z) S)  (<= (min S) (S z))  anim3  syl
-  (-. (= w' (S z))) adantr   w'  exani   (-> (e. (S z) S) (E. w (/\ (e. w S) (<= w z))))  orim1i  syl
+    (S A) S  w  (min S)  minex.2.1     impexpi    syl       (e. (min S) S)  anim2i    syl
+    (e. (min S) S)  (e. (S A) S)  (<= (min S) (S A))  anim3  syl
+  (-. (= w' (S A))) adantr   w'  exani   (-> (e. (S A) S) (E. w (/\ (e. w S) (<= w A))))  orim1i  syl
 
 # Great, now we can join up the two cases!
 pm2.61i
 # Pull out the common hypothesis
-(e. (S z) S)  (/\ (e. (min S) S) (<= (min S) (S z)))  (E. w (/\ (e. w S) (<= w z)))  pm4.78    mpbi
+(e. (S A) S)  (/\ (e. (min S) S) (<= (min S) (S A)))  (E. w (/\ (e. w S) (<= w A)))  pm4.78    mpbi
 
 # Almost there; just need to apply the IHOP to case 2B.
 
 # Introduce the new antecedent and polish up the new conclusion
-  w  (/\ (e. w S) (<= w z))  (/\ (/\ (e. (min S) S) (<= (min S) w)) (<= w (S z))) 19.22
-    (e. (min S) S)  (<= (min S) w)  (<= w (S z))  anass     (min S)  w  (S z)  letr   (e. (min S) S)  anim2i    sylbi  w 19.22i
-    w  (/\ (e. (min S) S) (<= (min S) (S z)))  ex-nf  syl
+  w  (/\ (e. w S) (<= w A))  (/\ (/\ (e. (min S) S) (<= (min S) w)) (<= w (S A))) 19.22
+    (e. (min S) S)  (<= (min S) w)  (<= w (S A))  anass     (min S)  w  (S A)  letr   (e. (min S) S)  anim2i    sylbi  w 19.22i
+    w  (/\ (e. (min S) S) (<= (min S) (S A)))  ex-nf  syl
   syl6
-(/\ (e. (min S) S) (<= (min S) (S z)))  orim2d     mpan9
-(/\ (e. (min S) S) (<= (min S) (S z)))  pm1.2    syl
+(/\ (e. (min S) S) (<= (min S) (S A)))  orim2d     mpan9
+(/\ (e. (min S) S) (<= (min S) (S A)))  pm1.2    syl
 impexpi
 
 syl
@@ -15230,13 +15230,13 @@ defthm  (df-beta nat (beta A B) ((A x ) (B x )) ()
           x' B A x df-beta-just)
 
 # number 116.1
-thm (maxex.1 ((A x y)) ()
-(-> (= x' A)  (<->
+thm (maxex.1 ((A x y) (B x y)) ()
+(-> (= B A)  (<->
     (-> (fun S)
-      (E. x (A. y (-> (/\ (< (head y) x') (e. y S)) (<= (tail y) x)))))
+      (E. x (A. y (-> (/\ (< (head y) B) (e. y S)) (<= (tail y) x)))))
     (-> (fun S)
       (E. x (A. y (-> (/\ (< (head y) A) (e. y S)) (<= (tail y) x)))))))
-  (= x' A)  id  (head y)  lteq2d
+  (= B A)  id  (head y)  lteq2d
   (e. y S)  anbi1d
   (<= (tail y) x)  imbi1d  y  19.21ai  19.15d
    x exbid
@@ -15464,72 +15464,72 @@ thm (fun1.1 () (hyp (fun S)) (-> (/\ (/\ (= (head B) A) (e. B S)) (/\ (= (head C
   mpbi
 )
 
-thm (maxex.2 ((S x y)) ()
+thm (maxex.2 ((S x y) (A x y)) ()
 (-> (-> (fun S)
 
-      (E. x (A. y (-> (/\ (< (head y) z) (e. y S)) (<= (tail y) x)))))
+      (E. x (A. y (-> (/\ (< (head y) A) (e. y S)) (<= (tail y) x)))))
     (-> (fun S)
-      (E. x (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) x))))))
+      (E. x (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) x))))))
 
-(head y)  z  lesuc    biimpi    (head y)  z  lefoo3      sylib
-(head y)  z  nnltp1let    (= (head y) z)  orbi2i  sylibr
+(head y)  A  lesuc    biimpi    (head y)  A  lefoo3      sylib
+(head y)  A  nnltp1let    (= (head y) A)  orbi2i  sylibr
 
 (e. y S)  anim1i
-(= (head y) z)  (< (head y) z)  (e. y S)  andir    sylib
+(= (head y) A)  (< (head y) A)  (e. y S)  andir    sylib
 
 (fun S)  jctl    ancomd
- (fun S)  (/\ (< (head y) (S z)) (e. y S))  (\/ (/\ (= (head y) z) (e. y S)) (/\ (< (head y) z) (e. y S)))  anim3    syl
-(fun S)  (/\ (= (head y) z) (e. y S))  (/\ (< (head y) z) (e. y S))  andi  syl6ib
-(fun S)  (/\ (= (head y) z) (e. y S))  pm3.27  (/\ (fun S) (/\ (< (head y) z) (e. y S)))  orim1i  syl6
+ (fun S)  (/\ (< (head y) (S A)) (e. y S))  (\/ (/\ (= (head y) A) (e. y S)) (/\ (< (head y) A) (e. y S)))  anim3    syl
+(fun S)  (/\ (= (head y) A) (e. y S))  (/\ (< (head y) A) (e. y S))  andi  syl6ib
+(fun S)  (/\ (= (head y) A) (e. y S))  pm3.27  (/\ (fun S) (/\ (< (head y) A) (e. y S)))  orim1i  syl6
 y  19.21ai  w  19.21ai
 
-S  w  y  z  fun1  jca
+S  w  y  A  fun1  jca
 
- w  (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (\/ (/\ (= (head y) z) (e. y S)) (/\ (fun S) (/\ (< (head y) z) (e. y S))))))  (A. y (-> (/\ (= (head y) z) (e. y S)) (= y w)))  19.29    syl
+ w  (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (\/ (/\ (= (head y) A) (e. y S)) (/\ (fun S) (/\ (< (head y) A) (e. y S))))))  (A. y (-> (/\ (= (head y) A) (e. y S)) (= y w)))  19.29    syl
 
 # Please excuse this illegible mess.  Just pulling an implication in from the end and applying
 # it to the first half of the disjunction.
 
-  (/\ (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (\/ (/\ (= (head y) z) (e. y S)) (/\ (fun S) (/\ (< (head y) z) (e. y S)))))) (A. y (-> (/\ (= (head y) z) (e. y S)) (= y w))))  y  alnfi
-  y  (-> (/\ (< (head y) (S z)) (e. y S)) (\/ (/\ (= (head y) z) (e. y S)) (/\ (fun S) (/\ (< (head y) z) (e. y S)))))  ax-4  y  (-> (/\ (= (head y) z) (e. y S)) (= y w))  ax-4  anim12i    y  19.20i  syl
+  (/\ (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (\/ (/\ (= (head y) A) (e. y S)) (/\ (fun S) (/\ (< (head y) A) (e. y S)))))) (A. y (-> (/\ (= (head y) A) (e. y S)) (= y w))))  y  alnfi
+  y  (-> (/\ (< (head y) (S A)) (e. y S)) (\/ (/\ (= (head y) A) (e. y S)) (/\ (fun S) (/\ (< (head y) A) (e. y S)))))  ax-4  y  (-> (/\ (= (head y) A) (e. y S)) (= y w))  ax-4  anim12i    y  19.20i  syl
 
- (-> (/\ (= (head y) z) (e. y S)) (= y w)) (/\ (< (head y) (S z)) (e. y S)) (\/ (/\ (= (head y) z) (e. y S)) (/\ (fun S) (/\ (< (head y) z) (e. y S)))) anim3    ancoms
- (-> (/\ (= (head y) z) (e. y S)) (= y w))  (/\ (= (head y) z) (e. y S))  (/\ (fun S) (/\ (< (head y) z) (e. y S)))  andi  syl6ib
- (/\ (= (head y) z) (e. y S))  (= y w)  pm3.35  ancoms  (/\ (-> (/\ (= (head y) z) (e. y S)) (= y w)) (/\ (fun S) (/\ (< (head y) z) (e. y S))))  orim1i
- (-> (/\ (= (head y) z) (e. y S)) (= y w))  (/\ (fun S) (/\ (< (head y) z) (e. y S)))  pm3.27  (= y w)  orim2i  syl  syl6
+ (-> (/\ (= (head y) A) (e. y S)) (= y w)) (/\ (< (head y) (S A)) (e. y S)) (\/ (/\ (= (head y) A) (e. y S)) (/\ (fun S) (/\ (< (head y) A) (e. y S)))) anim3    ancoms
+ (-> (/\ (= (head y) A) (e. y S)) (= y w))  (/\ (= (head y) A) (e. y S))  (/\ (fun S) (/\ (< (head y) A) (e. y S)))  andi  syl6ib
+ (/\ (= (head y) A) (e. y S))  (= y w)  pm3.35  ancoms  (/\ (-> (/\ (= (head y) A) (e. y S)) (= y w)) (/\ (fun S) (/\ (< (head y) A) (e. y S))))  orim1i
+ (-> (/\ (= (head y) A) (e. y S)) (= y w))  (/\ (fun S) (/\ (< (head y) A) (e. y S)))  pm3.27  (= y w)  orim2i  syl  syl6
  y  19.20i  syl
  w  19.22i  syl
 
 
-   (fun S)  x  (A. y (-> (/\ (< (head y) z) (e. y S)) (<= (tail y) x)))  imex
-   y  (fun S)  (-> (/\ (< (head y) z) (e. y S)) (<= (tail y) x))  19.21  x  exbii  bitr4i
-    (fun S)  (/\ (< (head y) z) (e. y S))   (<= (tail y) x)  pm3.31  y  19.20i x  19.22i    sylbi
+   (fun S)  x  (A. y (-> (/\ (< (head y) A) (e. y S)) (<= (tail y) x)))  imex
+   y  (fun S)  (-> (/\ (< (head y) A) (e. y S)) (<= (tail y) x))  19.21  x  exbii  bitr4i
+    (fun S)  (/\ (< (head y) A) (e. y S))   (<= (tail y) x)  pm3.31  y  19.20i x  19.22i    sylbi
   anim12i    ancoms
-  w  (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (\/ (= y w) (/\ (fun S) (/\ (< (head y) z) (e. y S)))))) x  (A. y (-> (/\ (fun S) (/\ (< (head y) z) (e. y S))) (<= (tail y) x)))  exey    syl
-  y  (-> (/\ (< (head y) (S z)) (e. y S)) (\/ (= y w) (/\ (fun S) (/\ (< (head y) z) (e. y S)))))  (-> (/\ (fun S) (/\ (< (head y) z) (e. y S))) (<= (tail y) x))  alan12   x  19.22i  w  19.22i  syl
+  w  (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (\/ (= y w) (/\ (fun S) (/\ (< (head y) A) (e. y S)))))) x  (A. y (-> (/\ (fun S) (/\ (< (head y) A) (e. y S))) (<= (tail y) x)))  exey    syl
+  y  (-> (/\ (< (head y) (S A)) (e. y S)) (\/ (= y w) (/\ (fun S) (/\ (< (head y) A) (e. y S)))))  (-> (/\ (fun S) (/\ (< (head y) A) (e. y S))) (<= (tail y) x))  alan12   x  19.22i  w  19.22i  syl
 
   # Once again, pulling an implication in and applying it to part of the disjunction.
-  (-> (/\ (fun S) (/\ (< (head y) z) (e. y S))) (<= (tail y) x))  (/\ (< (head y) (S z)) (e. y S))  (\/ (= y w) (/\ (fun S) (/\ (< (head y) z) (e. y S))))  anim3    ancoms     (-> (/\ (fun S) (/\ (< (head y) z) (e. y S))) (<= (tail y) x))  (= y w)  (/\ (fun S) (/\ (< (head y) z) (e. y S)))  andi   syl6ib  (-> (/\ (fun S) (/\ (< (head y) z) (e. y S))) (<= (tail y) x))  (= y w)  pm3.27  (/\ (-> (/\ (fun S) (/\ (< (head y) z) (e. y S))) (<= (tail y) x)) (/\ (fun S) (/\ (< (head y) z) (e. y S))))  orim1i  syl6  (/\ (fun S) (/\ (< (head y) z) (e. y S)))  (<= (tail y) x)  pm3.35 ancoms  (= y w)  orim2i  syl6
+  (-> (/\ (fun S) (/\ (< (head y) A) (e. y S))) (<= (tail y) x))  (/\ (< (head y) (S A)) (e. y S))  (\/ (= y w) (/\ (fun S) (/\ (< (head y) A) (e. y S))))  anim3    ancoms     (-> (/\ (fun S) (/\ (< (head y) A) (e. y S))) (<= (tail y) x))  (= y w)  (/\ (fun S) (/\ (< (head y) A) (e. y S)))  andi   syl6ib  (-> (/\ (fun S) (/\ (< (head y) A) (e. y S))) (<= (tail y) x))  (= y w)  pm3.27  (/\ (-> (/\ (fun S) (/\ (< (head y) A) (e. y S))) (<= (tail y) x)) (/\ (fun S) (/\ (< (head y) A) (e. y S))))  orim1i  syl6  (/\ (fun S) (/\ (< (head y) A) (e. y S)))  (<= (tail y) x)  pm3.35 ancoms  (= y w)  orim2i  syl6
     (tail w)  x  addge01t      y  w  taileq  (+ (tail w) x) leeq1d  mpbiri
       x  (tail w)  addge01t  x  (tail w)  addcom  x  leeq2i  mpbi  (tail y)  x  (+ (tail w) x)  letr  ancoms  ex  ax-mp
-    jaoi  (/\ (< (head y) (S z)) (e. y S))  imim2i
+    jaoi  (/\ (< (head y) (S A)) (e. y S))  imim2i
   syl
 y  19.20i  x  19.22i  w  19.22i  syl
 
     v  (+ (tail w) x)  tyex
-    (= v (+ (tail w) x))  id    (tail y)  leeq2d  biimprd  (/\ (< (head y) (S z)) (e. y S))  imim2d  y  19.21ai  v  19.22i  ax-mp
+    (= v (+ (tail w) x))  id    (tail y)  leeq2d  biimprd  (/\ (< (head y) (S A)) (e. y S))  imim2d  y  19.21ai  v  19.22i  ax-mp
      x  gen  w  gen
 
-#  w  (A. x (E. v (-> (-> ph (<= (tail y) (+ (tail w) x))) (-> ph (<= (tail y) v)))))  (E. x (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x)))))  19.29    x  (E. v (-> (-> ph (<= (tail y) (+ (tail w) x))) (-> ph (<= (tail y) v))))  (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x))))  19.29  w  19.22i  syl  ex  ax-mp    syl
+#  w  (A. x (E. v (-> (-> ph (<= (tail y) (+ (tail w) x))) (-> ph (<= (tail y) v)))))  (E. x (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x)))))  19.29    x  (E. v (-> (-> ph (<= (tail y) (+ (tail w) x))) (-> ph (<= (tail y) v))))  (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x))))  19.29  w  19.22i  syl  ex  ax-mp    syl
 
-  w  (A. x (E. v (A. y (-> (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x))) (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) v))))))  (E. x (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x)))))  19.29    x  (E. v (A. y (-> (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x))) (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) v)))))  (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x))))    19.29  w  19.22i  syl  ex  ax-mp    syl
+  w  (A. x (E. v (A. y (-> (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x))) (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) v))))))  (E. x (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x)))))  19.29    x  (E. v (A. y (-> (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x))) (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) v)))))  (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x))))    19.29  w  19.22i  syl  ex  ax-mp    syl
 
-  v  (A. y (-> (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x))) (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) v))))  (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x))))   19.41   biimpri    y (-> (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x))) (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) v)))  (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x)))  alan12  (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) (+ (tail w) x)))  (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) v))  pm3.35  ancoms  y  19.20i  syl  v  19.22i  syl  x  19.22i  w  19.22i  syl
+  v  (A. y (-> (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x))) (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) v))))  (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x))))   19.41   biimpri    y (-> (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x))) (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) v)))  (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x)))  alan12  (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) (+ (tail w) x)))  (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) v))  pm3.35  ancoms  y  19.20i  syl  v  19.22i  syl  x  19.22i  w  19.22i  syl
 
 
-  w  (E. x (E. v (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) v)))))  ex-nf  syl
-  x  (E. v (A. y (-> (/\ (< (head y) (S z)) (e. y S)) (<= (tail y) v))))  ex-nf  syl
-  (= v x)  id    (tail y)  leeq2d  (/\ (< (head y) (S z)) (e. y S))  imbi2d  y  19.21ai    19.15d  exalpha  sylib
+  w  (E. x (E. v (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) v)))))  ex-nf  syl
+  x  (E. v (A. y (-> (/\ (< (head y) (S A)) (e. y S)) (<= (tail y) v))))  ex-nf  syl
+  (= v x)  id    (tail y)  leeq2d  (/\ (< (head y) (S A)) (e. y S))  imbi2d  y  19.21ai    19.15d  exalpha  sylib
 ex
 )
 
@@ -15564,16 +15564,16 @@ defthm  (df-relprim wff (relprim A B) ((A x) (B x)) ()
 
 # number 120.0
 # Induction tool for relprimex
-thm (relprimex.1 ((C y z)) ()
-(-> (= x' C)
+thm (relprimex.1 ((C y z) (D y z)) ()
+(-> (= D C)
     (<->
 (-> (A. x (A. y (-> (/\ (e. x S) (e. y T)) (relprim x y))))
-     (E. z (/\ (A. y (-> (/\ (< (S (S y)) x') (e. (S (S y)) S))     (| (S (S y)) z)))
+     (E. z (/\ (A. y (-> (/\ (< (S (S y)) D) (e. (S (S y)) S))     (| (S (S y)) z)))
                (A. y (-> (e. (S (S y)) T) (-. (| (S (S y)) z)))))))
 (-> (A. x (A. y (-> (/\ (e. x S) (e. y T)) (relprim x y))))
      (E. z (/\ (A. y (-> (/\ (< (S (S y)) C) (e. (S (S y)) S))     (| (S (S y)) z)))
                (A. y (-> (e. (S (S y)) T) (-. (| (S (S y)) z)))))))))
-  (= x' C)  id  (S (S y))  lteq2d
+  (= D C)  id  (S (S y))  lteq2d
   (e. (S (S y)) S)  anbi1d
   (| (S (S y)) z)  imbi1d
   y  19.21ai  19.15d
@@ -16020,9 +16020,9 @@ pm3.2i
 
 )
 # number 137.5
-thm (beta.3.1 () (
-h1 (<-> ph (E. x' (/\ ps (= x (S (* (S x') (S A))))))))
-(-> ph (< (1) x))
+thm (beta.3.1 ((B x')) (
+h1 (<-> ph (E. x' (/\ ps (= B (S (* (S x') (S A))))))))
+(-> ph (< (1) B))
 h1
 
 A  pa_ax1  (S A)  0orpos  ori  con1i    eqcomd  con1i  ax-mp
@@ -16034,9 +16034,9 @@ x'  pa_ax1  (S x')  0orpos  ori  con1i    eqcomd  con1i  ax-mp
 (1)  mulid  (* (S x') (S A))  leeq1i  mpbi
 (1)  (* (S x') (S A))  lesuc  mpbir
 
-(= x (S (* (S x') (S A))))  id  (1) lteq2d  biimprd  mpi  ps  adantl
+(= B (S (* (S x') (S A))))  id  (1) lteq2d  biimprd  mpi  ps  adantl
 
-x'  19.22i  x'  (< (1) x)  ex-nf  syl
+x'  19.22i  x'  (< (1) B)  ex-nf  syl
 
 sylbi
 )
@@ -17150,35 +17150,35 @@ z  (-> (fun S) (recursep S (S A) B (apply S C)))  ex-nf    syl
 com12
 )
 # number 161.0
-thm (recursive.3 ((A x) (S x))
+thm (recursive.3 ((A x) (S x) (B x))
   ()
-  (->  (-> (fun S) (E. x (recursep S    w  A x)))
-       (-> (fun S) (E. x (recursep S (S w) A x))))
-  (/\ (A. y (-> (<= y (S w)) (\/ (/\ (<= y w) (= (beta z y) (beta v y))) (/\ (= y (S w)) (= (beta z y) (apply S x)))))) (/\ (= (beta v (0)) A) (/\ (= (beta v w) x) (A. y (-> (< y w) (e. (<,> (beta v y) (beta v (S y))) S))))))  biid  recursive.3.1  x  19.21ai
-  x  (recursep S w A x)  (recursep S (S w) A (apply S x))  19.22    syl    a2i
+  (->  (-> (fun S) (E. x (recursep S    B  A x)))
+       (-> (fun S) (E. x (recursep S (S B) A x))))
+  (/\ (A. y (-> (<= y (S B)) (\/ (/\ (<= y B) (= (beta z y) (beta v y))) (/\ (= y (S B)) (= (beta z y) (apply S x)))))) (/\ (= (beta v (0)) A) (/\ (= (beta v B) x) (A. y (-> (< y B) (e. (<,> (beta v y) (beta v (S y))) S))))))  biid  recursive.3.1  x  19.21ai
+  x  (recursep S B A x)  (recursep S (S B) A (apply S x))  19.22    syl    a2i
   imp
 
     v  (apply S x)  tyex
-    v  (apply S x)  S  (S w)  A  recursepeq4    v  19.22i    ax-mp
-    (recursep S (S w) A v)  (recursep S (S w) A (apply S x))  bi2    v  19.22i    ax-mp
+    v  (apply S x)  S  (S B)  A  recursepeq4    v  19.22i    ax-mp
+    (recursep S (S B) A v)  (recursep S (S B) A (apply S x))  bi2    v  19.22i    ax-mp
     x  gen
   jctil
-  x  (E. v (-> (recursep S (S w) A (apply S x)) (recursep S (S w) A v)))  (recursep S (S w) A (apply S x))  19.29    syl
-  v  (-> (recursep S (S w) A (apply S x)) (recursep S (S w) A v))  (recursep S (S w) A (apply S x))  19.41  biimpri    x  19.22i    syl
-  (recursep S (S w) A (apply S x))  (recursep S (S w) A v)  pm3.35    ancoms      v  19.22i    x  19.22i    syl
-  x  (E. v (recursep S (S w) A v))  ex-nf    syl
-  x  v  S  (S w)  A  recursepeq4    exalpha    sylibr
+  x  (E. v (-> (recursep S (S B) A (apply S x)) (recursep S (S B) A v)))  (recursep S (S B) A (apply S x))  19.29    syl
+  v  (-> (recursep S (S B) A (apply S x)) (recursep S (S B) A v))  (recursep S (S B) A (apply S x))  19.41  biimpri    x  19.22i    syl
+  (recursep S (S B) A (apply S x))  (recursep S (S B) A v)  pm3.35    ancoms      v  19.22i    x  19.22i    syl
+  x  (E. v (recursep S (S B) A v))  ex-nf    syl
+  x  v  S  (S B)  A  recursepeq4    exalpha    sylibr
   ex
 )
 
-thm (recursive.1 ((B x)) ()
-  (-> (= w B)
-     (<-> (-> (fun S) (E. x (recursep S w A x)))
+thm (recursive.1 ((B x) (C x)) ()
+  (-> (= C B)
+     (<-> (-> (fun S) (E. x (recursep S C A x)))
           (-> (fun S) (E. x (recursep S B A x)))))
 
-  w  B  z  betaeq2
+  C  B  z  betaeq2
   x  eqeq1d
-    (= w B)  id  y  lteq2d
+    (= C B)  id  y  lteq2d
     (e. (<,> (beta z y) (beta z (S y))) S)  imbi1d
     y  19.21ai     19.15d
   anbi12d
@@ -17187,7 +17187,7 @@ thm (recursive.1 ((B x)) ()
   x  exbid
   (fun S) imbi2d
 
-    S w A x z y df-recursep    x  exbii   (fun S)  imbi2i   syl5rbb
+    S C A x z y df-recursep    x  exbii   (fun S)  imbi2i   syl5rbb
     S B A x z y df-recursep    x  exbii   (fun S)  imbi2i   syl5rbb
 )
 
@@ -17316,33 +17316,33 @@ y  (E. x (/\ (recursep S A B x) (e. (<,> x C) S)))  ex-nf    syl
 # number 168.0
 
 
-thm (recursep-uniq.2 ((S z z') (A z z')) ()
-  (-> (fun S) (-> (A. z (A. z' (-> (/\ (recursep S y A z) (recursep S y A z')) (= z z'))))
-      (A. z (A. z' (-> (/\ (recursep S (S y) A z) (recursep S (S y) A z')) (= z z'))))))
+thm (recursep-uniq.2 ((S z z') (A z z') (B z z')) ()
+  (-> (fun S) (-> (A. z (A. z' (-> (/\ (recursep S B A z) (recursep S B A z')) (= z z'))))
+      (A. z (A. z' (-> (/\ (recursep S (S B) A z) (recursep S (S B) A z')) (= z z'))))))
 
-  S  y  A  z  x  recursepsuc
-    S  y  A  z'  x'  recursepsuc
+  S  B  A  z  x  recursepsuc
+    S  B  A  z'  x'  recursepsuc
   anim12i
-  x  (/\ (recursep S y A x) (e. (<,> x z) S))  x'  (/\ (recursep S y A x') (e. (<,> x' z') S))  exey    syl  (recursep S y A x)  (e. (<,> x z) S)  (recursep S y A x')  (e. (<,> x' z') S)  an4    biimpi    x'  19.22i    x  19.22i    syl
+  x  (/\ (recursep S B A x) (e. (<,> x z) S))  x'  (/\ (recursep S B A x') (e. (<,> x' z') S))  exey    syl  (recursep S B A x)  (e. (<,> x z) S)  (recursep S B A x')  (e. (<,> x' z') S)  an4    biimpi    x'  19.22i    x  19.22i    syl
 
     # need to alpha-swap the hypothesis
-    z'  x'  S  y  A  recursepeq4
-      (recursep S y A z)  anbi2d
+    z'  x'  S  B  A  recursepeq4
+      (recursep S B A z)  anbi2d
       z'  x'  z  eqeq2    imbi12d   alpha
       (= z x) a1i
-        z  x  S  y  A  recursepeq4
-        (recursep S y A x')  anbi1d
+        z  x  S  B  A  recursepeq4
+        (recursep S B A x')  anbi1d
         z  x  x'  eqeq1    imbi12d
         x'  19.21ai
-        x'  (-> (/\ (recursep S y A z) (recursep S y A x')) (= z x'))  (-> (/\ (recursep S y A x) (recursep S y A x')) (= x x'))  19.15    syl
+        x'  (-> (/\ (recursep S B A z) (recursep S B A x')) (= z x'))  (-> (/\ (recursep S B A x) (recursep S B A x')) (= x x'))  19.15    syl
       bitrd
       alpha    biimpi
-      (/\ (recursep S y A x) (recursep S y A x'))  (= x x')  (/\ (e. (<,> x z) S) (e. (<,> x' z') S))  pm3.45    x'  19.20i    x  19.20i   syl
+      (/\ (recursep S B A x) (recursep S B A x'))  (= x x')  (/\ (e. (<,> x z) S) (e. (<,> x' z') S))  pm3.45    x'  19.20i    x  19.20i   syl
     anim12i
-      x  (A. x' (-> (/\ (/\ (recursep S y A x) (recursep S y A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S))) (/\ (= x x') (/\ (e. (<,> x z) S) (e. (<,> x' z') S)))))  (E. x' (/\ (/\ (recursep S y A x) (recursep S y A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S))))  19.29    ancoms
-      x' (-> (/\ (/\ (recursep S y A x) (recursep S y A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S))) (/\ (= x x') (/\ (e. (<,> x z) S) (e. (<,> x' z') S))))  (/\ (/\ (recursep S y A x) (recursep S y A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S)))  19.29    x  19.22i    syl
+      x  (A. x' (-> (/\ (/\ (recursep S B A x) (recursep S B A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S))) (/\ (= x x') (/\ (e. (<,> x z) S) (e. (<,> x' z') S)))))  (E. x' (/\ (/\ (recursep S B A x) (recursep S B A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S))))  19.29    ancoms
+      x' (-> (/\ (/\ (recursep S B A x) (recursep S B A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S))) (/\ (= x x') (/\ (e. (<,> x z) S) (e. (<,> x' z') S))))  (/\ (/\ (recursep S B A x) (recursep S B A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S)))  19.29    x  19.22i    syl
     syl
-      (/\ (/\ (recursep S y A x) (recursep S y A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S)))  (/\ (= x x') (/\ (e. (<,> x z) S) (e. (<,> x' z') S)))  pm3.35    ancoms
+      (/\ (/\ (recursep S B A x) (recursep S B A x')) (/\ (e. (<,> x z) S) (e. (<,> x' z') S)))  (/\ (= x x') (/\ (e. (<,> x z) S) (e. (<,> x' z') S)))  pm3.35    ancoms
     x'  19.22i    x  19.22i    syl
     ancoms  ex
     x  x'  z  opeq1   (<,> x z)  (<,> x' z)  S   ax-eleq1    syl    biimpd    imp    (e. (<,> x' z') S)  anim1i    anasss  x'  19.22i    x  19.22i      x  (E. x' (/\ (e. (<,> x' z) S) (e. (<,> x' z') S)))  ex-nf   syl   syl6
@@ -17382,12 +17382,12 @@ thm (recursepeq2 () () (-> (= A B) (<-> (recursep S A C D) (recursep S B C D)))
 )
 
 # number 170.0
-thm (recursep-uniq.3 ((B z z')) () (-> (= x B) (<->
-  (-> (fun S) (A. z (A. z' (-> (/\ (recursep S x A z) (recursep S x A z')) (= z z')))))
+thm (recursep-uniq.3 ((B z z') (C z z')) () (-> (= C B) (<->
+  (-> (fun S) (A. z (A. z' (-> (/\ (recursep S C A z) (recursep S C A z')) (= z z')))))
   (-> (fun S) (A. z (A. z' (-> (/\ (recursep S B A z) (recursep S B A z')) (= z z')))))
 ))
-  x  B  S  A  z  recursepeq2
-    x  B  S  A  z'  recursepeq2
+  C  B  S  A  z  recursepeq2
+    C  B  S  A  z'  recursepeq2
   anbi12d
   (= z z')  imbi1d
   z'  19.21ai  19.15d    z  19.21ai    19.15d
@@ -23452,11 +23452,11 @@ A  B  pa_ax2    biimpi
   B  C  C'  D  df-factorization    syl6bbr
 )
 # number 15.0
-thm (exfactorization.1 ((A y) (A z) (A w)) () (-> (= x A)
-  (<-> (E. w (E. y (E. z (factorization w y z (S (S x))))))
+thm (exfactorization.1 ((A y) (A z) (A w) (B y z w)) () (-> (= B A)
+  (<-> (E. w (E. y (E. z (factorization w y z (S (S B))))))
        (E. w (E. y (E. z (factorization w y z (S (S A))))))))
-(= x A)  id    suceqd    suceqd
-  (S (S x))  (S (S A))  w  y  z  factorizationeq4
+(= B A)  id    suceqd    suceqd
+  (S (S B))  (S (S A))  w  y  z  factorizationeq4
   z  exbid    y  exbid    w  exbid
 syl
 )

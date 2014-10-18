@@ -367,11 +367,11 @@
         }
     }
 
-    // Check whether bindingVar appears free (or could appear free) in
-    // exp, with respect to the given constraints. Returns true or false.
-    // TODO: does not distinguish explicitly allowable
-    function appearsFreeIn(freeMaps, notFreeMap, nonDummyVars, bindingVar,
-                           exp) {
+    // asserts that bindingVar must not appear free in exp, with respect to the
+    // given constraints. If possible, add constraints to ctx.notFreeMap to
+    // guarantee this, and return true. If not possible (e.g. explicit
+    // freeness detected), return false.
+    function assertNotFreeIn(ctx, bindingVar, exp) {
         if (Array.isArray(exp)) {
             // By default, bVar is free in exp if it is free in SOME of the
             // args.  BUT, if the term exp[0] has a freeMap, it might be the
@@ -382,7 +382,7 @@
             // must trigger for EVERY boundList (if there are any) in order for
             // bVar to be free in exp.
             var boundLists = [];
-            var freeMap = freeMaps[exp[0]];
+            var freeMap = ctx.fact.FreeMaps[exp[0]];
             if (freeMap != undefined) {
                 exp.slice(1).forEach(function(arg, argNum) {
                     if (arg == bindingVar) {
@@ -396,30 +396,60 @@
                     }
                 });
             }
-            var recurse = appearsFreeIn.bind(null, freeMaps, notFreeMap,
-                                             nonDummyVars, bindingVar);
-            // If there were no boundLists, just check each arg.
+            var recurse = assertNotFreeIn.bind(null, ctx, bindingVar);
             if (boundLists.length == 0) {
-                return exp.slice(1).some(recurse);
+                // If there were no boundLists, just check each arg.
+                return exp.slice(1).every(recurse);
+            } else if (boundLists.length > 1) {
+                // This is tricky... only ONE of the boundLists needs to succeed,
+                // but the others would add spurious constraints to the ctx.
+                // TODO: Does anyone ever even need this?
+                throw new Error("Not Implemented!");
             } else {
-                // Again: in order for us to return true, EVERY boundList must
-                // contain SOME exp in which our bindingVar is free.
-                return boundLists.every(function(boundList) {
-                    return boundList.some(recurse);
-                });
+                // Check each arg in the boundList.
+                return boundLists[0].every(recurse);
             }
         } else {
+            // exp is a Var.
             if (bindingVar == exp) {
-                return true;
-            } else if (!nonDummyVars[bindingVar] || !nonDummyVars[exp]) {
+                // Explicitly free
+                return false;
+            } else if (!ctx.nonDummyVars[bindingVar] || !ctx.nonDummyVars[exp]) {
                 // Each Proof Dummy Variable is assumed disjoint-from each other
                 // variable. (I.e., neither appears-free-in the other.)
-                return false;
+                return true;
             } else {
                 // Note: we do not here distinguish between binding vars and
-                // term vars. We expect that every pair of distinct binding vars
-                // appears (both ways if necessary) in the notFreeMap.
-                return notFreeMap[bindingVar + "," + exp] ? false : true
+                // term vars. We put pairs of binding-vars in the notFreeMap,
+                // which Ghilbert does not allow, and trust they will be
+                // filtered out later.
+                ctx.notFreeMap[[bindingVar, exp]] = 1;
+                return true;
+            }
+        }
+    }
+
+    // Visit each var in the given expression. Update ctx.bindingVars for any
+    // vars which must be binding due to a freemap entry. If callback is passed,
+    // also call it on each var.
+    function visitVars(ctx, callback, exp) {
+        if (Array.isArray(exp)) {
+            exp.slice(1).forEach(visitVars.bind(null, ctx, callback));
+            var freeMap = ctx.fact.FreeMaps[exp[0]];
+            if (freeMap !== undefined) {
+                for (var k in freeMap) if (freeMap.hasOwnProperty(k)) {
+                    var arg = exp[Number(k) + 1];
+                    if (Array.isArray(arg)) {
+                        throw new Error("Term " + JSON.stringify(arg) +
+                                        " passed as arg " + k + " to " + 
+                                        ctx.fact.Skin.TermNames[exp[0]]);
+                    }
+                    ctx.bindingVars[arg] = true;
+                }
+            }
+        } else {
+            if (callback) {
+                callback(exp);
             }
         }
     }
@@ -427,56 +457,24 @@
     function reduceProofStep(ctx, step, index) {
         if (!ctx.fact) {
             // On first call, accumulator contains only fact
-            ctx = {fact:ctx, stack:[], dvs:[], mh:[]};
-
+            ctx = {fact:ctx, stack:[], mandHyps:[], notFreeMap:{},
+                   nonDummyVars: {}, bindingVars: {}};
 
             // Find out which vars are Not Proof Dummy Vars, and which vars
             // are Binding Vars.
             // NOTE: we only mark a var as Binding if it is used as a binding
             // arg to some term in the FreeMaps, in either a hyp or the conc.
             // Otherwise we assume it is term.
-            // TODO: This could create a problem ... e.g. sbaxex. but usually(?) in a case where the thm proved was not as general as it should have been!
-            // TODO: PICKUP with rwffi
+            // TODO: This could create a problem ... e.g. sbaxex. but usually(?)
+            // in a case where the thm proved was not as general as it should
+            // have been!
             // TODO: this could be made faster using our assumption of sorted
             // int varnames.
-            ctx.nonDummyVars = {};
-            var bindingVars = {};
-            function visitVars(exp) {
-                if (Array.isArray(exp)) {
-                    exp.slice(1).forEach(visitVars);
-                    var freeMap = ctx.fact.FreeMaps[exp[0]];
-                    if (freeMap !== undefined) {
-                        for (var k in freeMap) if (freeMap.hasOwnProperty(k)) {
-                            bindingVars[exp[Number(k) + 1]] = true;
-                        }
-                    }
-                } else {
-                    ctx.nonDummyVars[exp] = 1;
-                }
-            }
-            visitVars(ctx.fact.Core[Fact.CORE_STMT]);
-            ctx.fact.Core[Fact.CORE_HYPS].forEach(visitVars);
-
-            // Preprocess the freeness constraint in the core into a
-            // quicker-lookup map: notFreeMap[x,A] = 1 if x is not free in A.
-            var notFreeMap = {};
-            ctx.fact.Core[Fact.CORE_FREE].forEach(function(flist) {
-                var tVar = flist[0];
-                flist.slice(1).forEach(function(bVar) {
-                    notFreeMap[bVar + "," + tVar] = 1;
-                });
+            var markNonDummy = visitVars.bind(null, ctx, function(v) {
+                ctx.nonDummyVars[v] = true;
             });
-            // appearsFreeIn() expects each pair of binding Vars to be declared
-            // explicitly not-free-in each other. TODO: this should be taken
-            // care of in the conversion.
-            for (var k1 in bindingVars) {
-                for (var k2 in bindingVars) {
-                    if (k1 != k2) {
-                        notFreeMap[k1 + "," + k2] = 1;
-                    }
-                }
-            }
-            ctx.notFreeMap = notFreeMap;
+            markNonDummy(ctx.fact.Core[Fact.CORE_STMT]);
+            ctx.fact.Core[Fact.CORE_HYPS].forEach(markNonDummy);
         }
         if (typeof step === "string") {
             var parts = step.split(/\./);
@@ -505,15 +503,15 @@
                     } else if (varMap.hasOwnProperty(term)) {
                         return varMap[term];
                     } else {
-                        if (ctx.mh.length == 0) {
+                        if (ctx.mandHyps.length == 0) {
                             throw new Error("Too few mandhyps! term " + term);
                         }
-                        var mh = ctx.mh.shift();
-                        varMap[term] = mh;
-                        return mh;
+                        var mandHyp = ctx.mandHyps.shift();
+                        varMap[term] = mandHyp;
+                        return mandHyp;
                     }
                 }
-                ctx.stack.push(substitute(depCore[Fact.CORE_STMT]));
+                var newStackExp = substitute(depCore[Fact.CORE_STMT]);
                 // Now that varMap is complete, check it against the dep's free
                 // constraints.
                 depCore[Fact.CORE_FREE].forEach(function(flist) {
@@ -524,16 +522,18 @@
                             throw new Error("Expected binding var for " + bvar +
                                             "; got " + JSON.stringify(newBvar));
                         }
-                        if (appearsFreeIn(ctx.fact.FreeMaps, ctx.notFreeMap,
-                                          ctx.nonDummyVars, newBvar, term)) {
-                            console.log("XXXX nfm " +
-                                        JSON.stringify(ctx.notFreeMap));
+                        ctx.bindingVars[newBvar] = true;
+                        if (!assertNotFreeIn(ctx, newBvar, term)) {
                             throw new Error("Freeness violation! " + newBvar +
                                             " free in " + JSON.stringify(term) +
                                             " at step " + step  + "@" + index);
                         }
                     });
                 });
+                // This step may have thrust some variable into a binding
+                // position in one of our terms.
+                visitVars(ctx, null, newStackExp);
+                ctx.stack.push(newStackExp);
                 break;
             case "Hyps":
                 var hypArr = ctx.fact.Core[Fact.CORE_HYPS];
@@ -545,9 +545,9 @@
             default:
                 throw new Error("Unknown string step " + step + " at " + index);
             }
-            ctx.mh = [];
+            ctx.mandHyps = [];
         } else {
-            ctx.mh.push(step);
+            ctx.mandHyps.push(step);
         }
         return ctx;
     }
@@ -632,7 +632,32 @@
                 }
                 // TODO: PICKUP: check soundness
             }
-            // TODO: PICKUP: check dvs.
+            // Check the accumulated freeness constraints against the declared
+            // ones.
+            var pairs = [];
+            for (var p in ctx.notFreeMap) if (ctx.notFreeMap.hasOwnProperty(p)) {
+                // Ignore pairs where the second var has been detected as a 
+                // binding var.
+                var pair = p.split(',');
+                if (!ctx.bindingVars[pair[1]]) {
+                    pairs.push(p);
+                }
+            }
+            pairs.sort();
+            var declaredPairs = [];
+            ctx.fact.Core[Fact.CORE_FREE].forEach(function(flist) {
+                var term = flist[0];
+                flist.slice(1).forEach(function(bvar) {
+                    declaredPairs.push(bvar + "," + term);
+                });
+            });
+            declaredPairs.sort();
+            var calculated = JSON.stringify(pairs);
+            var declared = JSON.stringify(declaredPairs);
+            if (calculated != declared) {
+                throw new Error("Freeness constraint mismatch: calculated " +
+                                calculated + "; declared " + declared);
+            }
             return;
         default:
             throw new Error("Unknown cmd " + this.Tree.Cmd);
