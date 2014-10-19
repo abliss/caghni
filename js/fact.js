@@ -411,10 +411,15 @@
             }
         } else {
             // exp is a Var.
-            if (bindingVar == exp) {
+            if (ctx.ensureFree) {
+                // Hook to allow custom resolution; used in computing freemaps
+                // when verifying defthms
+                return ctx.ensureFree(bindingVar, exp);
+            } else if (bindingVar == exp) {
                 // Explicitly free
                 return false;
-            } else if (!ctx.nonDummyVars[bindingVar] || !ctx.nonDummyVars[exp]) {
+            } else if (!ctx.nonDummyVars[bindingVar] ||
+                       !ctx.nonDummyVars[exp]) {
                 // Each Proof Dummy Variable is assumed disjoint-from each other
                 // variable. (I.e., neither appears-free-in the other.)
                 return true;
@@ -628,7 +633,7 @@
                     // in gh
                 }
             } else { // BEGIN defthm handling
-                defConcMatch(ctx.stack[0], this.Core[Fact.CORE_STMT], this, ctx);
+                defConcMatch(ctx.stack[0], this.Core[Fact.CORE_STMT], this,ctx);
                 if (!ctx.hasOwnProperty("defSig")) {
                     throw new Error("Term being defined does not occur.");
                 }
@@ -646,13 +651,13 @@
                 }
                 var formalArgs = {};
                 var bindingFormalArg = null;
-                ctx.defSig.slice(1).forEach(function(v) {
+                ctx.defSig.slice(1).forEach(function(v, index) {
                     if (Array.isArray(v)) {
                         throw new Error("Defthm formal arg term " + v);
                     } else if (formalArgs.hasOwnProperty(v)) {
                         throw new Error("Defthm repeated formal arg " + v);
                     }
-                    formalArgs[v] = false;
+                    formalArgs[v] = index;
                     if (ctx.bindingVars[v]) {
                         // Ghilbert allows two binding formal args if they are
                         // different kinds, but we have no kinds here.
@@ -665,33 +670,76 @@
                 });
 
                 var remnantVars = {};
+                var seenVars = {};
                 function checkVar(v) {
                     if (!remnantVars[v]) {
                         remnantVars[v] = 1;
                         if (formalArgs.hasOwnProperty(v)) {
-                            formalArgs[v] = true;
+                            seenVars[v] = true;
                         } else {
                             if (ctx.nonDummyVars[v]) {
                                 throw new Error("Var " + v +
-                                                " is not a defthm arg or dummy");
+                                                " isn't a defthm arg or dummy");
                             } else if (!ctx.bindingVars[v]) {
                                 throw new Error("Var " + v +
-                                                " is not a binding var");
-                            } else if (!assertNotFreeIn(ctx, v, ctx.definiens)) {
+                                                " isn't a binding var");
+                            } else if (!assertNotFreeIn(ctx, v,ctx.definiens)) {
                                 throw new Error("Var " + v +
                                                 " appears free in remnant");
                             }
-
                         }
                     }
                 }
+                
                 visitVars(ctx, checkVar, ctx.definiens);
+                ctx.defSig.slice(1).forEach(function(v) {
+                    if (!seenVars[v]) {
+                        throw new Error("Unused Defthm Formal arg " + v);
+                    }
+                });
+
+                // Now we need to check that the freemap of the new term is
+                // correct.
+                var newFreeMap = this.FreeMaps[this.Tree.Definiendum] || {};
+                for (var v in ctx.bindingVars) {
+                    if (ctx.bindingVars.hasOwnProperty(v) &&
+                        formalArgs.hasOwnProperty(v)) {
+                        if (!newFreeMap.hasOwnProperty(v)) {
+                            throw new Error("Binding var " + v +
+                                            " not in freemap");
+                        }
+                        var bindingList = newFreeMap[v];
+                        // this says: v is bound in defSig UNLESS v is free in
+                        // EVERY bindingList arg.
+                        var computed = [], seen = {};
+                        ctx.ensureFree = function(bVar, tVar) {
+                            if (formalArgs.hasOwnProperty(tVar) &&
+                                !seen[tVar]) {
+                                computed.push(formalArgs[tVar]);
+                                seen[tVar] = true;
+                            }
+                            // If this tVar appears in the definiens but not
+                            // the defSig, it must be a binding dummy var, so
+                            // no worries.
+                            return true;
+                        };
+                        assertNotFreeIn(ctx, v, ctx.definiens); // can't fail
+                        delete ctx.ensureFree;
+                        computed.sort();
+                        if (JSON.stringify(computed) !==
+                            JSON.stringify(bindingList)) {
+                            throw new Error("Freemap mismatch for " + v + ":" +
+                                            computed + " != " + bindingList);
+                        }
+                    }
+                }
+                
             } // END defthm handling
             
             // Check the accumulated freeness constraints against the declared
             // ones.
             var pairs = [];
-            for (var p in ctx.notFreeMap) if (ctx.notFreeMap.hasOwnProperty(p)) {
+            for (var p in ctx.notFreeMap) if (ctx.notFreeMap.hasOwnProperty(p)){
                 // Ignore pairs where the second var has been detected as a 
                 // binding var.
                 var pair = p.split(',');

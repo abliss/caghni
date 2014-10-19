@@ -298,7 +298,7 @@ ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,
     var fact = new Fact().setCmd(myKw).setName(label);
     this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
     this.factsByLabel[label] = fact;
-    if (label == 'sbc5' || label == "df-subst") {
+    if (label == 'sbc5' || dsig) {
         console.log("XXXX putting " + makeDbKey(fact) + " => " + JSON.stringify(fact));
     }
     factsDb.put(makeDbKey(fact), JSON.stringify(fact));
