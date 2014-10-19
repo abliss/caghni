@@ -701,6 +701,7 @@
                 // Now we need to check that the freemap of the new term is
                 // correct.
                 var newFreeMap = this.FreeMaps[this.Tree.Definiendum] || {};
+                var checkedVars = {};
                 for (var v in ctx.bindingVars) {
                     if (ctx.bindingVars.hasOwnProperty(v) &&
                         formalArgs.hasOwnProperty(v)) {
@@ -731,9 +732,14 @@
                             throw new Error("Freemap mismatch for " + v + ":" +
                                             computed + " != " + bindingList);
                         }
+                        checkedVars[v] = true;
                     }
                 }
-                
+                for (var v in newFreeMap) if (newFreeMap.hasOwnProperty(v)) {
+                    if (!checkedVars[v]) {
+                        throw new Error("Spurious key in freemap: " + v);
+                    }
+                }
             } // END defthm handling
             
             // Check the accumulated freeness constraints against the declared
