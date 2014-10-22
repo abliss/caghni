@@ -518,6 +518,9 @@
                     }
                 }
                 var newStackExp = substitute(depCore[Fact.CORE_STMT]);
+                if (ctx.mandHyps.length != 0) {
+                    throw new Error("Too many mand hyps! step " + index);
+                }
                 // Now that varMap is complete, check it against the dep's free
                 // constraints.
                 depCore[Fact.CORE_FREE].forEach(function(flist) {
@@ -539,6 +542,22 @@
                 // This step may have thrust some variable into a binding
                 // position in one of our terms.
                 visitVars(ctx, null, newStackExp);
+                // Ghilbert does not allow the same binding var to be used twice
+                // in a substitution. 
+                // TODO: what if these vars still haven't been flagged,
+                // but get detected later?
+                var bindingVarsUsed = {};
+                for (var v in varMap) if (varMap.hasOwnProperty(v)) {
+                    var term = varMap[v];
+                    if (!Array.isArray(term) &&
+                        ctx.bindingVars[term]) {
+                        if (bindingVarsUsed[term]) {
+                            throw new Error("Binding variables not distinct: "
+                                            + term + " at step " + index);
+                        }
+                        bindingVarsUsed[term] = true;
+                    }
+                }
                 ctx.stack.push(newStackExp);
                 break;
             case "Hyps":
@@ -621,15 +640,21 @@
             var ctx = this.Tree.Proof.reduce(reduceProofStep, this);
             if (ctx.stack.length != 1) {
                 throw new Error("Final stack length " + ctx.stack.length);
+            } else if (ctx.mandHyps.length != 0) {
+                throw new Error("Leftover mand hyp on stack");
             } else if (this.Tree.Cmd == 'thm') {
-                if (!unify(ctx.stack[0], this.Core[Fact.CORE_STMT], {})) {
+                var varMap = {};
+                if (!unify(ctx.stack[0], this.Core[Fact.CORE_STMT], varMap)) {
                     throw new Error(
                         "Thm Mismatch: Final stack has " +
                             JSON.stringify(ctx.stack[0]) + " but wanted " +
                             JSON.stringify(this.Core[Fact.CORE_STMT]));
-                    // TODO: We allow you to prove something more general than
-                    // you stated... but this is a bad idea and will not verify
-                    // in gh
+                }
+                // You might have proved something too general.
+                for (var v in varMap) if (varMap.hasOwnProperty(v)) {
+                    if (Number(v) !== varMap[v]) {
+                        throw new Error("Stack doesn't match concl");
+                    }
                 }
             } else { // BEGIN defthm handling
                 defConcMatch(ctx.stack[0], this.Core[Fact.CORE_STMT], this,ctx);
