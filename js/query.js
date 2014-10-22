@@ -37,7 +37,7 @@ function score(fact, hint) {
          JSON.stringify(hint.terms)) &&
         hint.freeMaps.every(function(map, index) {
             return !map ||
-                (JSON.stringify(map) ===
+                (JSON.stringify(map) === // XXX relies on canonical json 
                  JSON.stringify(fact.FreeMaps[index]));
         })) {
         n += 1000;

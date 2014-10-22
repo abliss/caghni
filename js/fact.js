@@ -260,9 +260,6 @@
     // Returns an appropriate database key, specific to the core
     Fact.prototype.getKey = function() {
         var key = this.getMark();
-        if (Math.random() < 0.01) {
-            console.log("XXXX Key: " + key)
-        }
         return key;
     };
     // Returns the prefix of this.Skin.TermNames which is used in the Core.
