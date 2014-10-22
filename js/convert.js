@@ -18,8 +18,10 @@ var Fact = require('./fact.js');
 
 GH = global.GH = {};
 global.log = console.log;
-require('./verify.js')
+require('./sexpression.js')
+require('./typeset.js')
 require('./proofstep.js')
+require('./verify.js')
 
 var args = Process.argv;
 
@@ -73,6 +75,7 @@ function ConvertVerifyCtx(urlCtx) {
             // We don't care about styling, but apparently we need to
             // participate in passing it around.
             var styling = scanner.styleScanner.get_styling();
+            styling.filename = ''; // WTF
             var arg = GH.read_sexp(scanner);
             context.do_cmd(command, arg, styling);
             scanner.styleScanner.clear();
