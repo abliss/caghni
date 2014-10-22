@@ -34,11 +34,17 @@ function score(fact, hint) {
     }
     if (hint.terms &&
         (JSON.stringify(fact.Skin.TermNames.slice(0, hint.terms.length)) ===
-         JSON.stringify(hint.terms))) {
+         JSON.stringify(hint.terms)) &&
+        hint.freeMaps.every(function(map, index) {
+            return !map ||
+                (JSON.stringify(map) ===
+                 JSON.stringify(fact.FreeMaps[index]));
+        })) {
         n += 1000;
     }
 
-    if (hint.name == 'def-bi'|| fact.Skin.Name=='def-bi') {
+
+    if (false) {
         console.log("XXXX Scored: " + n +
                     "\n  Hint=" + JSON.stringify(hint) +
                     "\n  Fact=" + JSON.stringify(fact));

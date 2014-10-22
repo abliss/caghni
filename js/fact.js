@@ -213,6 +213,8 @@
                         var hint = {name:origDep};
                         hint.terms = depMap.map(function(n) {
                             return that.Skin.TermNames[n];});
+                        hint.freeMaps = depMap.map(function(n) {
+                            return that.FreeMaps[n];});
                         /*
                         console.log("# XXXX Gh " +
                                     that.Skin.Name + " wants " +
