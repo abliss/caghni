@@ -252,7 +252,9 @@
         try {
             fact.verify();
         } catch(e) {
+            fact.Skin.Name = e.message;
             console.log("Error verifying " + JSON.stringify(fact));
+            e.fact = fact;
             throw e;
         }
         // super()

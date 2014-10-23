@@ -342,12 +342,11 @@
             if (!Array.isArray(dst) ||
                 (src.length !== dst.length) ||
                 (dst[0] !== opNum)) {
-                console.log("XXX3 " + JSON.stringify(src) + " != " + JSON.stringify(dst));
                 return false;
             }
             for (var i = 1; i < src.length; i++) {
                 if (!unify(src[i], dst[i], varMap, opMap)) {
-                console.log("XXX2 " + JSON.stringify(src) + " != " + JSON.stringify(dst));           return false;
+                    return false;
                 }
             }
             return true;
@@ -355,7 +354,6 @@
             if (varMap.hasOwnProperty(src)) {
                 src = varMap[src];
                 if (!termEqual(src, dst)) {
-                    console.log("XXX1 " + JSON.stringify(src) + " != " + JSON.stringify(dst));
                     return false;
                 }
                 return true;
