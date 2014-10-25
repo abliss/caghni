@@ -1,0 +1,1 @@
+{"Core":[[],[0,0,0],[]],"FreeMaps":{"2":{"0":[]}},"Skin":{"Name":"Expected binding var for 1; got [1,1,2]","HypNames":[],"DepNames":["alnfi"],"VarNames":["ph","x","y"],"TermNames":["->","+","A."],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[[[[],[0,0,[1,1,0]],[[0,1]]],[0,2]]],"Proof":[0,[1,1,2],"Deps.0"]}}
