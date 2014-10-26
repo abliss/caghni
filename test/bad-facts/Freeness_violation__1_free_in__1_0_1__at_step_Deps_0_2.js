@@ -1,0 +1,1 @@
+{"Core":[[],[0,[1,0,1],[2,1,[1,0,1]]],[]],"FreeMaps":{"2":{"0":[]}},"Skin":{"Name":"Freeness violation! 1 free in [1,0,1] at step Deps.0@2","HypNames":[],"DepNames":["alnfi"],"VarNames":["A","x"],"TermNames":["->","=","A."],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[[[[],[0,0,[1,1,0]],[[0,1]]],[0,2]]],"Proof":[[1,0,1],1,"Deps.0"]}}

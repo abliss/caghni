@@ -1,0 +1,1 @@
+{"Core":[[],[0,0,0],[]],"FreeMaps":{},"Skin":{"Name":"Stack underflow: step Deps.0","HypNames":[],"DepNames":["thm1"],"VarNames":["ph","x"],"TermNames":["->"],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[[[[1],[0,[0,0,1],[0,0,1]],[]],[0]]],"Proof":[1,"Deps.0"]}}

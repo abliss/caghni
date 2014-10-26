@@ -1,0 +1,1 @@
+{"Core":[[],[0,[1,0,1],[1,0,1]],[[0,1]]],"FreeMaps":{},"Skin":{"Name":"Freeness constraint mismatch: calculated []; declared [\"1,0\"]","HypNames":[],"DepNames":["id"],"VarNames":["A","x"],"TermNames":["->","="],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[[[[],[0,0,0],[]],[0]]],"Proof":[[1,0,1],"Deps.0"]}}

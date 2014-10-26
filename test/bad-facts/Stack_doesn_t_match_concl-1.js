@@ -1,0 +1,1 @@
+{"Core":[[[0,[1,1,1],[1,1,1]]],[0,[1,0,0],[1,0,0]],[]],"FreeMaps":{},"Skin":{"Name":"Stack doesn't match concl","HypNames":["hyp"],"DepNames":[],"VarNames":["x","A"],"TermNames":["->","="],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[],"Proof":[0,"Hyps.0"]}}
