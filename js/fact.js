@@ -519,11 +519,28 @@
                 if (ctx.mandHyps.length != 0) {
                     throw new Error("Too many mand hyps! step " + index);
                 }
-                // Now that varMap is complete, check it against the dep's free
-                // constraints.
+                // Now the varMap is complete.
+
+                // Ghilbert does not allow the same var to be substituted
+                // for two different binding variables. So we need to figure out
+                // which vars are binding in the dependency fact. TODO: what if
+                // the fact declared binding vars in a way that can't be
+                // inferred from the core??
+                
+                // TODO: ugly hack. Need to refine visitVars API.
+                var depCtx = {bindingVars:{}, fact:{FreeMaps:{}}};
+                opMap.forEach(function(myNum, eirNum) {
+                    depCtx.fact.FreeMaps[eirNum] = ctx.fact.FreeMaps[myNum];
+                });
+                var depVisitor = visitVars.bind(null, depCtx, null);
+                depCore[Fact.CORE_HYPS].forEach(depVisitor);
+                depVisitor(depCore[Fact.CORE_STMT]);
+
+                // Check completed varMap against the dep's free constraints.
                 depCore[Fact.CORE_FREE].forEach(function(flist) {
                     var term = varMap[flist[0]];
                     flist.slice(1).forEach(function(bvar) {
+                        depCtx.bindingVars[bvar] = true;
                         var newBvar = varMap[bvar];
                         if (Array.isArray(newBvar)) {
                             throw new Error("Expected binding var for " + bvar +
@@ -540,22 +557,20 @@
                 // This step may have thrust some variable into a binding
                 // position in one of our terms.
                 visitVars(ctx, null, newStackExp);
-                // Ghilbert does not allow the same binding var to be used twice
-                // in a substitution. 
-                // TODO: what if these vars still haven't been flagged,
-                // but get detected later?
+                
+                // Now check for collisions in substituted binding-vars
                 var bindingVarsUsed = {};
-                for (var v in varMap) if (varMap.hasOwnProperty(v)) {
-                    var term = varMap[v];
-                    if (!Array.isArray(term) &&
-                        ctx.bindingVars[term]) {
-                        if (bindingVarsUsed[term]) {
+                for (var v in depCtx.bindingVars) {
+                    if (depCtx.bindingVars.hasOwnProperty(v)) {
+                        var myBvar = varMap[v];
+                        if (bindingVarsUsed[myBvar]) {
                             throw new Error("Binding variables not distinct: "
                                             + term + " at step " + index);
                         }
-                        bindingVarsUsed[term] = true;
+                        bindingVarsUsed[myBvar] = true;
                     }
                 }
+                
                 ctx.stack.push(newStackExp);
                 break;
             case "Hyps":
