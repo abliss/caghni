@@ -155,6 +155,18 @@
             }
         }
         
+        function getFreeMap(termList) {
+            var out = [];
+            termList[2].forEach(function(argSpec, argNum) {
+                if (argSpec == null) {
+                    return;
+                };
+                out[argNum] = argSpec.slice();
+                out[argNum].sort();
+            });
+            return out;
+        }
+        
         // Like symMapSexp, but tries to map the first element of each sexp as an
         // operator.
         function mapSexp(sexp) {
@@ -164,7 +176,7 @@
             var term = sexp[0];
             if (that.terms.hasOwnProperty(term) ||
                 (dsig && (dsig[0] === term))) {
-                term = fact.nameTerm(term);
+                term = fact.nameTerm(term, getFreeMap(that.terms[term]))
                 // TODO: need to name tree term separately from bone/meat terms.
                 // otherwise key gets dummy terms; see bicom
             }
@@ -206,23 +218,15 @@
             fact.setProof(proof.map(mapProofStep));
         }
 
-        if (dsig) { // defthms
-            fact.setDefiniendum(dsig[0]);
-        }
-
         // Look up and record the FreeMap for each term used in this fact.
         fact.FreeMaps = [];
         fact.Skin.TermNames.forEach(function(name, termNum) {
             var term = that.terms[name];
-            var freeMap = term[2];
-            fact.FreeMaps[termNum] = [];
-            freeMap.forEach(function(argSpec, argNum) {
-                if (argSpec == null) {
-                    return;
-                };
-                fact.FreeMaps[termNum][argNum] = argSpec.slice();
-                fact.FreeMaps[termNum][argNum].sort();
-            });
+            fact.FreeMaps[termNum] = getFreeMap(term);
+            if (dsig && (dsig[0] == name)) { // defthms
+                fact.setDefiniendum(termNum);
+            }
+
         });
     };
     ConvertVerifyCtx.prototype.add_assertion = function(kw, label, fv, hyps, concl,

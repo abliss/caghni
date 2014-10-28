@@ -90,8 +90,26 @@
     }
 
     // set up methods on the obj
-    Fact.prototype.nameTerm = function(s) {
-        return indexOf(this.Skin.TermNames, s);
+    Fact.prototype.nameTerm = function(s, freeMap) {
+        if (typeof freeMap == 'undefined') {
+            throw new Error("freeMap needed to name " + s);
+        }
+        var that = this;
+        var added = false;
+        var name = indexOf(this.Skin.TermNames, s, function(n) {
+            // TODO: shoud clone freeMap
+            that.FreeMaps[n] = freeMap;
+            added = true;
+        });
+        if (!added &&
+            (JSON.stringify(this.FreeMaps[name]) !=
+             JSON.stringify(freeMap))) {
+            // TODO: create new term with same name??
+            throw new Error("freeMap mismatch for " + s + ": had " + 
+                            JSON.stringify(this.FreeMaps[name]) + " new " +
+                            JSON.stringify(freeMap));
+        }
+        return name;
     };
     Fact.prototype.nameHyp = function(s) {
         return 'Hyps.' + indexOf(this.Skin.HypNames, s);
@@ -99,8 +117,9 @@
     Fact.prototype.nameDep = function(s, fact) {
         var that = this;
         return 'Deps.' + indexOf(this.Skin.DepNames, s, function(n) {
-            var termMap = fact.getCoreTermNames().map(function(term) {
-                return that.nameTerm(term);
+            var termMap = [];
+            fact.getCoreTermNames().forEach(function(name, num) {
+                termMap[num] = that.nameTerm(name, fact.FreeMaps[num]);
             });
             that.Tree.Deps[n] = [fact.Core, termMap]; //TODO: should copy Core
         });
@@ -124,8 +143,8 @@
         this.Core[Fact.CORE_FREE] = arr;
         return this;
     };
-    Fact.prototype.setDefiniendum = function(term) {
-        this.Tree.Definiendum = this.nameTerm(term);
+    Fact.prototype.setDefiniendum = function(termNum) {
+        this.Tree.Definiendum = termNum;
         return this;
     };
     Fact.prototype.setProof = function(arr) {
