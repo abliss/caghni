@@ -211,23 +211,17 @@
         }
 
         // Look up and record the FreeMap for each term used in this fact.
-        fact.FreeMaps = {};
+        fact.FreeMaps = [];
         fact.Skin.TermNames.forEach(function(name, termNum) {
             var term = that.terms[name];
             var freeMap = term[2];
-            // We only put an entry in the FreeMaps object if the term has at least
-            // one binding argument.
-            var freeMapVal = null;
+            fact.FreeMaps[termNum] = [];
             freeMap.forEach(function(argSpec, argNum) {
                 if (argSpec == null) {
                     return;
                 };
-                if (freeMapVal == null) {
-                    freeMapVal = {};
-                    fact.FreeMaps[termNum] = freeMapVal;
-                }
-                freeMapVal[argNum] = argSpec.slice();
-                freeMapVal[argNum].sort();
+                fact.FreeMaps[termNum][argNum] = argSpec.slice();
+                fact.FreeMaps[termNum][argNum].sort();
             });
         });
     };
@@ -252,7 +246,6 @@
         try {
             fact.verify();
         } catch(e) {
-            fact.Skin.Name = e.message;
             console.log("Error verifying " + JSON.stringify(fact));
             e.fact = fact;
             throw e;

@@ -21,7 +21,6 @@
                 [], // Stmt
                 [], // Free
             ],
-            FreeMaps: {}, // Key is int
             Skin: {
                 Name: undefined,
                 License: undefined,
@@ -37,6 +36,22 @@
                 Deps: [],
                 Proof: [],
             },
+            // FreeMaps should have the same length as Skin.TermNames: i.e., one
+            // FreeMap for every term T used in this fact (even if not in the
+            // core). A FreeMap is a list whose length is at most the arity of
+            // the corresponding term; each element is a "bindingList" for the
+            // corresponding arg. (If an arg is a term var rather than a binding
+            // var, its bindingList is "null"; a suffix of nulls may be
+            // truncated.)
+            
+            // The bindingList for a bindingVar (call it "x") is a
+            // sorted list of distinct 0-indexed arg numbers n. x is considered
+            // "not free in T" unless x appears free in EACH arg n.
+            // 
+            // An example from sbceq12:
+            // Skin.TermNames:["->","=","<->","[/]"     ,"rwff","A."]
+            //       FreeMaps:[[]  ,[] ,[]   ,[null,[0]], [[]] ,[[]]]
+            FreeMaps: [], 
         };
         function copyFromSchema(schemaObj, inputObj, outputObj) {
             for (var k in schemaObj) {
@@ -380,11 +395,11 @@
             // bVar to be free in exp.
             var boundLists = [];
             var freeMap = ctx.fact.FreeMaps[exp[0]];
-            if (freeMap != undefined) {
+            if (freeMap != null) {
                 exp.slice(1).forEach(function(arg, argNum) {
                     if (arg == bindingVar) {
                         var boundList = freeMap[argNum];
-                        if (boundList != undefined) {
+                        if (boundList != null) {
                             // Okay, the bVar has been found as a "binding arg".
                             boundLists.push(boundList.map(function(argNum) {
                                 return exp[argNum + 1];
@@ -438,17 +453,15 @@
         if (Array.isArray(exp)) {
             exp.slice(1).forEach(visitVars.bind(null, ctx, callback));
             var freeMap = ctx.fact.FreeMaps[exp[0]];
-            if (freeMap !== undefined) {
-                for (var k in freeMap) if (freeMap.hasOwnProperty(k)) {
-                    var arg = exp[Number(k) + 1];
-                    if (Array.isArray(arg)) {
-                        throw new Error("Term " + JSON.stringify(arg) +
-                                        " passed as arg " + k + " to " + 
-                                        ctx.fact.Skin.TermNames[exp[0]]);
-                    }
-                    ctx.bindingVars[arg] = true;
+            freeMap.forEach(function(bindingList, argNum) {
+                var arg = exp[argNum + 1];
+                if (Array.isArray(arg)) {
+                    throw new Error("Term " + JSON.stringify(arg) +
+                                    " passed as arg " + k + " to " + 
+                                    ctx.fact.Skin.TermNames[exp[0]]);
                 }
-            }
+                ctx.bindingVars[arg] = true;
+            });
         } else {
             if (callback) {
                 callback(exp);
@@ -528,7 +541,7 @@
                 // inferred from the core??
                 
                 // TODO: ugly hack. Need to refine visitVars API.
-                var depCtx = {bindingVars:{}, fact:{FreeMaps:{}}};
+                var depCtx = {bindingVars:{}, fact:{FreeMaps:[]}};
                 opMap.forEach(function(myNum, eirNum) {
                     depCtx.fact.FreeMaps[eirNum] = ctx.fact.FreeMaps[myNum];
                 });
@@ -737,14 +750,13 @@
 
                 // Now we need to check that the freemap of the new term is
                 // correct.
-                var newFreeMap = this.FreeMaps[this.Tree.Definiendum] || {};
+                var newFreeMap = this.FreeMaps[this.Tree.Definiendum];
                 var checkedVars = {};
                 for (var v in ctx.bindingVars) {
                     if (ctx.bindingVars.hasOwnProperty(v) &&
                         formalArgs.hasOwnProperty(v)) {
-                        if (!newFreeMap.hasOwnProperty(v)) {
-                            throw new Error("Binding var " + v +
-                                            " not in freemap");
+                        if (newFreeMap[v] == null) {
+                            throw new Error("bvar " + v + " not in freemap");
                         }
                         var bindingList = newFreeMap[v];
                         // this says: v is bound in defSig UNLESS v is free in
@@ -772,11 +784,11 @@
                         checkedVars[v] = true;
                     }
                 }
-                for (var v in newFreeMap) if (newFreeMap.hasOwnProperty(v)) {
-                    if (!checkedVars[v]) {
-                        throw new Error("Spurious key in freemap: " + v);
+                newFreeMap.forEach(function(bindingList, argNum) {
+                    if ((bindingList != null) && !checkedVars[argNum]) {
+                        throw new Error("Spurious arg in freemap: " + argNum);
                     }
-                }
+                });
             } // END defthm handling
             
             // Check the accumulated freeness constraints against the declared
