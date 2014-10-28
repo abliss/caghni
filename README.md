@@ -57,7 +57,6 @@ In the database, this becomes the following object:
             [0,[1,0,[2,1]],[2,[3,0,1]]],  // Stmt
             [],                           // Free
            ],
-     FreeMaps: {1:{0:[]},3:{0:[]}},        // TermNum->Freemap
      Skin:{
          Name:"alnex",
          HypNames:[],
@@ -75,9 +74,13 @@ In the database, this becomes the following object:
               [0,2]]],
          Proof:[0,1,"Deps.0","Deps.1"],
      }
+     FreeMaps: [[],[[]],[],[[]]],         // FreeMap for each Term
     }
 
-The "Core" is the actual skeleton of the Fact, and is fundamental to how it is used in a proof. The "Skin" comprises presentation-only content which doesn't affect the Fact's meaning or how it is used. The "Tree" captures the Fact's dependence on other Facts. Each element of the Tree.Deps array names a prerequisite for the Proof. However, it does not refer to a particular fact, but only to its Core, and to the mapping between the Term indices of the two Facts. 
+The "Core" is the actual skeleton of the Fact, and is fundamental to how it is used in a proof. The "Skin" comprises presentation-only content which doesn't affect the Fact's meaning or how it is used. The "Tree" captures the Fact's dependence on other Facts. Each element of the Tree.Deps array names a prerequisite for the Proof. However, it does not refer to a particular fact, but only to its Core, and to the mapping between the Term indices of the two Facts.
+
+"FreeMaps" is necessary to calculate which binding variables are free in which
+terms. It also helps us identify which variables are binding variables.
  
 Now we know that if we want to prove the Fact of `alnex`, we don't necessarily need `df-ex`, just some Fact (be it a thm, a defthm, or a stmt) with the same Core, and a compatible set of terms. If its Skin.TermNames matches, we can use it directly. If a substitution is applied consistently through the file (e.g. &rarr; for `->`) that's okay too.
 
@@ -85,7 +88,7 @@ For example, in general/First-order_logic.gh, there is
 
     defthm (ThereExists formula (∃ x φ) () () (↔ (∃ x φ) (¬ (∀ x (¬ φ)))) ...)
 
-which creates a Fact with the same Core as `alnex` (i.e, `[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]]`) and a `Skin.TermNames` array of `["↔","∃","¬","∀"]]`.  Thus, as long as our query engine can consistently map ↔ to `<->` ,  etc. ,throughout the file, this can be used just as well as df-ex. (Not yet implemented.)
+which creates a Fact with the same Core as `alnex` (i.e, `[[],[0,[1,0,1],[2,[3,0,[2,1]]]],[]]`) and a `Skin.TermNames` array of `["↔","∃","¬","∀"]]`.  Thus, as long as the FreeMaps match up, and our query engine can consistently map ↔ to `<->` ,  etc. ,throughout the file, this can be used just as well as df-ex. (Not yet implemented.)
 
 Note that the Fact schema stores no information about the Kinds of variables or
 terms, nor the distinction between "Term Variables" and "Binding Variables"

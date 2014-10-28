@@ -36,9 +36,9 @@ function score(fact, hint) {
         (JSON.stringify(fact.Skin.TermNames.slice(0, hint.terms.length)) ===
          JSON.stringify(hint.terms)) &&
         hint.freeMaps.every(function(map, index) {
-            return !map ||
-                (JSON.stringify(map) ===
-                 JSON.stringify(fact.FreeMaps[index]));
+            // NB: fact.FreeMaps may contain extra items not in the hint.
+            return (JSON.stringify(map) ===
+                    JSON.stringify(fact.FreeMaps[index]));
         })) {
         n += 1000;
     }
