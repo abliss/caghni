@@ -37,7 +37,7 @@ function score(fact, hint) {
          JSON.stringify(hint.terms)) &&
         hint.freeMaps.every(function(map, index) {
             return !map ||
-                (JSON.stringify(map) === // XXX relies on canonical json 
+                (JSON.stringify(map) ===
                  JSON.stringify(fact.FreeMaps[index]));
         })) {
         n += 1000;
@@ -62,7 +62,7 @@ function InferredTerm(name, arity, freeMap) {
     this.isTerm = [];
     this.kind = "k"; // TODO:kinds
     for (var i = 0; i < arity; i++) {
-        this.isTerm[i] = !freeMap || !freeMap.hasOwnProperty(i);
+        this.isTerm[i] = !freeMap || (freeMap[i] == null);
     }
 }
 InferredTerm.prototype.toString = function() {
@@ -306,7 +306,7 @@ function finish() {
 if (true) {
     factsDb.get(
         //'[[],[0,[0,0,1],[0,[0,1,2],[0,0,2]]],[]];["->"];c765a7251be57954ae4f948e57bc0a7bed4b5bce', //nic-luk1
-        '[[],[0,[1,0,1],[1,1,0]],[]];["=","+"];714cfc143e2b2201f7c6c0f3e51622a6e25b7a38', //addcom
+        '[[],[0,[1,0,1],[1,1,0]],[]];["=","+"];54ffbc48418d77173f4c59d79e39961b1fb4ef14', // adcom
         //"[[],[0,[1,0,[1,1,[0,[2,[3,0,2],[3,1,3]],[4,0,1]]]],[5,4,[2,[1,1,[0,[2,[6,[7,[7,1]],5],[3,[7,[7,1]],2]],[8,[7,[7,1]],4]]],[1,1,[0,[3,[7,[7,1]],3],[9,[8,[7,[7,1]],4]]]]]]],[[2,0,1,4],[3,0,1,4],[5,1,4]]];13f6897af1da323d39c68b6f070ad5a14c72b4a0", // relprimex
         
                 function(err, data) {
