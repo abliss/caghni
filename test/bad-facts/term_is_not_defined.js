@@ -1,0 +1,1 @@
+{"Core":[[],[0,[1,0,[1,0,1]],[1,0,[1,0,1]]],[]],"Skin":{"Name":"term is not defined","HypNames":[],"DepNames":["ax-7"],"VarNames":["x","ph"],"TermNames":["->","A."],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[[[[],[0,[1,0,[1,1,2]],[1,1,[1,0,2]]],[]],[0,1]]],"Proof":[0,0,1,"Deps.0"]},"FreeMaps":[[],[[]]]}

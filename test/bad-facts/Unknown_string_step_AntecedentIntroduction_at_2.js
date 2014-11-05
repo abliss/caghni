@@ -1,1 +1,1 @@
-{"Core":[[],[0,0,[0,1,0]],[]],"FreeMaps":{},"Skin":{"Name":"Unknown string step AntecedentIntroduction at 2","HypNames":[],"DepNames":[],"VarNames":["p","q"],"TermNames":["foo.→"],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[],"Proof":[0,1,"AntecedentIntroduction"]}}
+{"Core":[[],[0,0,[0,1,0]],[]],"Skin":{"Name":"Unknown string step AntecedentIntroduction at 2","HypNames":[],"DepNames":[],"VarNames":["p","q"],"TermNames":["foo.→"],"Delimiters":[]},"Tree":{"Cmd":"thm","Deps":[],"Proof":[0,1,"AntecedentIntroduction"]},"FreeMaps":[[]]}
