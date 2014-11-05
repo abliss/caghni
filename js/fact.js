@@ -825,9 +825,11 @@
             var declaredPairs = [];
             ctx.fact.Core[Fact.CORE_FREE].forEach(function(flist) {
                 var term = flist[0];
-                flist.slice(1).forEach(function(bvar) {
-                    declaredPairs.push(bvar + "," + term);
-                });
+                if (!ctx.bindingVars[term]) {
+                    flist.slice(1).forEach(function(bvar) {
+                        declaredPairs.push(bvar + "," + term);
+                    });
+                }
             });
             declaredPairs.sort();
             var calculated = JSON.stringify(pairs);
