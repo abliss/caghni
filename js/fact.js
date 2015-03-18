@@ -50,7 +50,7 @@
             // 
             // An example from sbceq12:
             // Skin.TermNames:["->","=","<->","[/]"     ,"rwff","A."]
-            //       FreeMaps:[[]  ,[] ,[]   ,[null,[0]], [[]] ,[[]]]
+            //       FreeMaps:[ [] ,[] , []  ,[null,[0]], [[]], [[]] ]
             FreeMaps: [], 
         };
         function copyFromSchema(schemaObj, inputObj, outputObj) {

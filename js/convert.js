@@ -4,10 +4,9 @@
  * Usage: ./convert.js indir outdir
  */
 
-var VERSION = 4;
+var VERSION = 5;
 /**
- * Version 4: Builds a LevelDB of all content (see README.md for
- * schema). Numeric Core instead of stringy Meat.
+ * Version 5: Pretty-prints to the filesystem. See README.md for schema.
  */
 
 GH = global.GH = {};
@@ -34,6 +33,7 @@ if (args.length != 4) {
 }
 var inDir = args[2];
 var outDir = args[3];
+var useLevel = false;
 
 try {
     Fs.mkdirSync(outDir);
@@ -41,11 +41,41 @@ try {
     // ignore EEXIST
 }
 
-var Level = require('level');
-var factsDb = Level(Path.join(outDir, 'facts.leveldb'));
+var factsDb;
+
+if (useLevel) {
+    var Level = require('level');
+    factsDb = Level(Path.join(outDir, 'facts.leveldb'));
+} else {
+    factsDb = {
+        put: function(key, value) {
+            var filename = key;
+            filename = encodeURIComponent(filename);
+            filename = filename.replace(/%5B/g,'C'); // [
+            filename = filename.replace(/%5D/g,'D'); // ]
+            filename = filename.replace(/%2C/g,'.'); // ,
+            filename = filename.replace(/%3B/g,'/'); // ;
+            filename = filename.split(/\//g).map(function(x) {
+                // split up path components that are too long
+                return x.replace(/(.{250})/g,"$1_/_");
+            }).join("/");
+            var path  = filename.split(/\//g);
+            for (var i = 0; i < path.length; i++) {
+                try {
+                    Fs.mkdirSync(outDir + "/" + path.slice(0,i).join('/'));
+                } catch(e) {
+                    // ignore EEXIST
+                }
+            }
+            Fs.writeFileSync(outDir + "/" + filename, value);
+        },
+        close: function(){
+        },
+    }
+}
 
 function makeDbKey(fact) {
-    var factJson = JSON.stringify(fact);
+    var factJson = JSON.stringify(fact); // TODO: canonicalize
     var hash = Crypto.createHash('sha1');
     hash.update(factJson);
     var sha1 = hash.digest('hex');
@@ -65,6 +95,15 @@ function NodeUrlContext(rootDir) {
 }
 
 
+// Like JSON.stringify, but prettier.
+function prettyPrint(depth, obj) {
+    return JSON.stringify(obj, null, "  ")
+        .replace(/\[\s+/g,'[')
+        .replace(/\s+]/g,']')
+        .replace(/\s+([0-9])/g,"$1")
+        .replace(/\s+("[^"]+"[^:])/g,'$1');
+}
+
 // TODO: for now assume each directory is a ghilbert module
 function processGhilbertModule(moduleName) {
     // exported interface -> {oldThm -> newThm}
@@ -75,7 +114,8 @@ function processGhilbertModule(moduleName) {
             console.log("    XXXX Processing proof " + fileName);
             var verifyCtx = new Converter(
                 urlCtx, function(fact) {
-                    factsDb.put(makeDbKey(fact), JSON.stringify(fact));
+                    var pretty = prettyPrint(0, fact);
+                    factsDb.put(makeDbKey(fact), pretty);
                 });
             verifyCtx.run(urlCtx, fileName, verifyCtx);
             var map = verifyCtx.getRenameMap();

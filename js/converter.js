@@ -252,7 +252,9 @@
         } catch(e) {
             console.log("Error verifying " + JSON.stringify(fact));
             e.fact = fact;
-            throw e;
+            Fs.writeFile(fact.Skin.Name+".verify_fail.json",
+                         JSON.stringify(fact));
+            //throw e;
         }
         // super()
         GH.VerifyCtx.prototype.add_assertion.apply(this, arguments);
