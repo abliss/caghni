@@ -835,8 +835,12 @@
             var calculated = JSON.stringify(pairs);
             var declared = JSON.stringify(declaredPairs);
             if (calculated != declared) {
-                throw new Error("Freeness constraint mismatch: calculated " +
-                                calculated + "; declared " + declared);
+                var err =  new Error("Freeness constraint mismatch: calculated " +
+                                     calculated + "; declared " + declared);
+                err.calculated = pairs;
+                err.declared = declaredPairs;
+                err.context = ctx;
+                throw(err);
             }
             return ctx;
         default:
