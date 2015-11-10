@@ -7,7 +7,7 @@
     }
     // A Fact is an "interlingua" object representing a stmt, thm, or
     // defthm. This is designed for easy conversion to/from JSON.  For
-    // consistency, you must almways name things in the same order.  Once the
+    // consistency, you must always name things in the same order.  Once the
     // hyps and stmt have been set, further calls to nameKind and nameTerm will
     // not affect the result of getKey().
     function Fact(obj) {

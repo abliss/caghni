@@ -49,15 +49,17 @@ func (s *sexp) toString() string {
 	return out
 }
 
-func indexOf(list []string, t string) (i int, l []string) {
-	l = list
+// Searches for the string in the given list. If found, return its index and the
+// same list. If not found, append it to the end, returning the index and the
+// new list.
+func indexOf(list []string, t string) (int, []string) {
 	var k string
-	for i, k = range l {
+	for i, k = range list {
 		if k == t {
-			return
+			return i, list
 		}
 	}
-	return len(l), append(l, t)
+	return len(list), append(list, t)
 }
 
 func mapify(ss []*sexp, f func(s *sexp) string) []string {
@@ -99,36 +101,11 @@ func jsonize(ss interface{}) string {
 // Turns a sexp into a string.  Assumes all leafs are vars.
 // Augments the fields of this.lastEntry as we go.
 func (this *GhScanner) stringify(s *sexp) string {
+	var i int
 	if len(s.Leaf) > 0 {
-		var kind, pfix string
-		var ok bool
-		if kind, ok = this.tvarKinds[s.Leaf]; ok {
-			pfix = "T"
-		} else if kind, ok = this.varKinds[s.Leaf]; ok {
-			pfix = "V"
-		} else {
-			panic(errors.New(fmt.Sprintf("Unknown var %s", s.Leaf)))
-		}
-		oldLen := len(this.lastEntry.Fact.Meat.Kinds)
-		var kindI int
-		kindI, this.lastEntry.Fact.Meat.Kinds =
-			indexOf(this.lastEntry.Fact.Meat.Kinds, kind)
-		if kindI >= oldLen {
-			// new kind; augment V and T
-			this.lastEntry.Fact.Skin.T = append(this.lastEntry.Fact.Skin.T,
-				make([]string, 0))
-			this.lastEntry.Fact.Skin.V = append(this.lastEntry.Fact.Skin.V,
-				make([]string, 0))
-		}
-		var varList [][]string
-		if pfix == "T" {
-			varList = this.lastEntry.Fact.Skin.T
-		} else {
-			varList = this.lastEntry.Fact.Skin.V
-		}
-		var varI int
-		varI, varList[kindI] = indexOf(varList[kindI], s.Leaf)
-		return fmt.Sprintf("%s%d.%d", pfix, kindI, varI)
+		i, this.lastEntry.Fact.Skin.VarNames =
+			indexOf(this.lastEntry.Fact.Skin.VarNames, s.Leaf)
+		return i
 	} else {
 		return bracketize(mapify(s.Kids, this.stringify))
 	}
@@ -149,8 +126,8 @@ func (this *GhScanner) stringifyTerm(s *sexp) string {
 			panic("Empty isTerm sexp! " + msg)
 		}
 		var termI int
-		termI, this.lastEntry.Fact.Meat.Terms =
-			indexOf(this.lastEntry.Fact.Meat.Terms, s.Kids[0].Leaf)
+		termI, this.lastEntry.Fact.Skin.TermNames =
+			indexOf(this.lastEntry.Fact.Skin.TermNames, s.Kids[0].Leaf)
 		ss := make([]string, 1)
 		ss[0] = fmt.Sprintf("%d", termI)
 		kids := mapify(s.Kids[1:], this.stringifyTerm)
@@ -262,8 +239,7 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 			bracketize(mapify(dvs.Kids, this.stringify)),
 		})
 		key += ";" + jsonize([][]string{
-			this.lastEntry.Fact.Meat.Terms,
-			this.lastEntry.Fact.Meat.Kinds,
+			this.lastEntry.Fact.Skin.TermNames,
 		}) + ";TODOsha1This"
 		this.lastEntry.Key = key
 	case "tvar", "var":
@@ -279,6 +255,10 @@ func (this *GhScanner) ghSplit(data []byte, atEOF bool) (
 		token = make([]byte, 0)
 	case "param":
 		//TODO : how to handle?
+		break
+	case "thm":
+	case "defthm":
+		panic("I can only handle interfaces!")
 	default:
 		// other commands (kind, term) we skip.
 		token = make([]byte, 0)

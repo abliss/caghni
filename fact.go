@@ -12,35 +12,15 @@ import (
 	"strings"
 )
 
-// A Mark is a JSON-unmarshalable, structure that specifes the bone and meat of
-// a fact. The format is [[boneStr], terms, kinds]. The boneStr is a
-// JSON-flattened nested-string-array with the quotes removed (the nodes of
-// this tree cannot contain commas or brackets). Best not to try to interact
-// with a Mark's contents directly; use the methods.  Marks should be considered
-// immutable.
+// Either an int (representing a var), or a list whose first term is an int
+// (representing a term) and whose other terms are Sexps (representing arguments
+// to that term).
+type Sexp interface{}
 
-type Mark struct {
-	list  [][]string
-	flat  string
-	hash  string
-	Index int
-}
+// A list of [Hyps, Stmt, Free].
+type Core []interface{}
 
-// Given a mark's hash, and the pointers to the subst pair, there is only one
-// answer for rewrite -- we memorize it.
-type MarkBind struct {
-	mark  int
-	terms *Subst
-	kinds *Subst
-}
-
-var (
-	// TODO: will need to sync these
-	memo        map[MarkBind]Mark
-	markIndices map[string]int
-	MaxMark     int
-)
-
+// TODO: PICKUP
 func (this *Mark) Hash() string {
 	if len(this.hash) == 0 {
 		this.hash = this.list[0][0] + "\x01" +
@@ -146,33 +126,22 @@ func (this Mark) Rewrite(bind Bind) Mark {
 // unmarshalled into by the json package. Anything that is listed as interface{}
 // in this struct is a nested list of strings.
 type Fact struct {
-	Bone struct {
-		Stmt interface{}
-		Hyps []interface{}
-		Free [][]string
-	}
-	Meat struct {
-		Terms []string
-		Kinds []string
-	}
-	Skin struct {
+	Core     []interface{}
+	FreeMaps [][][]int
+	Skin     struct {
 		Name       string
 		License    string
 		HypNames   []string
-		Delimiters []string
 		DepNames   []string
-		V          [][]string
-		T          [][]string
+		VarNames   []string
+		TermNames  []string
+		Delimiters []string
 	}
 	Tree struct {
-		Cmd      string
-		Deps     [][][]string
-		depMarks []Mark // wrapped around the [][]string
-		Proof    []interface{}
-		Dkind    int
-		Dsig     []interface{}
-		Terms    []string
-		Kinds    []string
+		Cmd         string
+		Definiendum interface{}
+		Deps        [][]interface{}
+		Proof       []interface{}
 	}
 }
 
