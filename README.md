@@ -100,5 +100,97 @@ expected to be added in the future.)
 
 The leveldb is a simply key-value store; the key for each Fact is its Core, as above, plus the sha1sum of its JSON contents. A Fact's proof is verified as it is added to the database; its entry never changes and need never be deleted. Multiple proofs of a Fact can happily exist side-by-side; one or another may be chosen for a particular query based on a variety of scoring algorithms. This database should scale well to many millions of Facts, and could easily be sharded across machines.
 
+# Fingerprints (version "y")
 
+First, define the "lexencode" function on a string argument:
+```
+  lexencode(S): 'y' + ('+' x len(len(S)))+ (len(S)) + '-' + sha1hex(S)
+```
 
+This has the property that lexencode(S) < lexencode(T) If S is shorter than T.
+
+## Basis Fingerprints
+
+A "Basis" is an interface together with all its transitively dependent
+interfaces. To make a Basis Fingerprint (BF):
+
+1. Collect all Terms in the Basis; put them (and their FreeMaps) into a global
+Term List. Make sure each FreeMap is maximal (no omitted entries, no skipping
+null suffixes)
+
+2. Assemble the Cores of all stmts in the Basis as JSONified strings:
+[hyps,stmt,dvs]. Within each Core, terms are numbered from 0 as normal. Keep
+track of how each Core's terms map to the global Term List.
+
+3. Sort the Core Strings by ASCII order.
+
+4. Rearrange the global Term List by order of first appearance. Reorder the
+FreeMaps the same way.
+
+5. Assemble each Core's Term Mapping. The first Core will have [0,1,2,...n] as
+its term map. The other Cores could have anything, but each new Term j appears
+before Term k iff j<k.
+
+6. create the Basis String BS by JSONifying the array [[[core0,
+terms0],[core1,terms1],...[coreN,termsN]],FreeMaps]. (JSON arrays have no
+whitespace.)
+
+7. The Basis Fingerprint BF(B) is then `lexencode(BS)`.
+
+8. BFs are to be compared lexically.
+
+9. One Basis "Proves" another, A |- B, if there's a consistent term map M with
+which stmts of the Cores of A can prove all stmts of the Cores of B. Some of B's
+terms may be null in M, indicating that they are supplied with defthms over A.
+
+10. Two bases are equivalent, A ~ B, If A |- B using M and B |- A using
+inv(M). (terms of A unmapped by M become nulls in inv(M) and must be defthm'd.)
+
+11. We maintain a Least Equivalent Basis table, which records A->B (and the
+proof of B|-A) anytime A ~ B and B <= C for all C ~ A.
+
+## Term Fingeprints
+
+For each Term T, relative to a given basis B, we can also compute a Term Fingerprint TF(T/B). 
+
+1. If the term is in the basis as term #N, the TF is ('y#'+N). 
+
+2. Otherwise, if the term is given by a defthm D, provable from B, we expand
+every non-basis term in the core of D to get a new core C.
+
+3. Assemble the Term Map: for each term in order of appearance in C, put n if it
+is term #n in the basis; otherwise put null. There should be exactly one null:
+for the definiendum.
+
+4. Assemble the Term String TS by JSONifying the array [C,T].
+
+5. The Term Fingerprint TF(T/B) is then `FreeMap(T)/lexencode(B)/lexencode(TS)`.
+
+6. TFs are to be compared lexically.
+
+7. Relative to a basis B, Two terms T,U are considered equivalent, T~U, if:
+  a. If T and U are both in B, only if there Term Numbers are the same, OR if swapping T for U in B gives a new basis C and B ~ C.
+  b. If T is term #n in B, and U is a defthm, then only when the Core of U, with the definiendum replaced by n, can be proved from B.
+  c. If T and U are both defthms, only when (B + defthm(T)) proves thm(U) and (B + defthm(U)) proves thm(T). In each proof, the same term goes in the definiendum of the defthm() and in *place* of the definiendum in the thm().
+
+8. Terms in different bases: T/A is considered equivalent to term U/B when A~B using a Term Map that maps T to U. 
+
+9. We keep a Least Equivalent Term table which records TF(T/B) -> TF(U/C) whenever T/A ~ U/C.
+
+When a core C can be grounded in a basis B with a Term Map M, each element of M (corresponding to a term T in C) will be a Least Equivalent TF(T/B).
+
+We can then build a Grounding Index by Basis: BF(B)/Core/TermMap -> [[FactFP,
+TermMap]]. The last FactFP in the list matches the given Core, and for each fact
+F in the list and each dependency D of F, there will be either a matching stmt
+in B or a matching [def]thm in the list earlier than F.
+
+When we find that B ~ C and C < B, add BF(C)/Core/TermMap -> [[FactFP, TermMap]], and mark the earlier one as obsolete, entering B->C into the Equivalences table.
+
+Trying to ground a new fact F in a basis B?
+1. lookup the Least Known Equivalent Basis C for B, and start off your proof with the recorded proof C|-B.
+2. for each dependency D in F, look up TF(C)/D/ and get a list of TermMaps TM(D/C). 
+3. Filter for those whose TermMaps all have correct FreeMaps to the ones specified in F.
+4. Then a simple search through the permutations should(TODO?) tell you whether there is a consistent global TermMap. 
+5. If you find one, merge the fact-lists and record it in the Grounding Index.
+6. If you don't, optionally try to discover new groundings for some of the missing dependencies. 
+7. (TODO: cache failure in the Grounding Index table by global DB hash? only retry by focusing on newly-proven theorems since the last failure?)
