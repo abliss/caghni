@@ -84,20 +84,21 @@ defthm (def-neg wff (-. ph) () ()
 
 #  Derive the standard modus ponens from [[nic-mp]].  (Contributed by Jeff
 #        Hoffman, 18-Nov-2007.) 
-thm (nic-stdmp () (nic-smin ph nic-smaj (-> ph ps)) ps nic-smin nic-smaj ph ps def-im nic-bi2 nic-mp nic-mp)
+thm (ax-mp () (nic-smin ph nic-smaj (-> ph ps)) ps nic-smin nic-smaj ph ps def-im nic-bi2 nic-mp nic-mp)
 
 #  Proof of [[luk-1]] from [[nic-ax]] and [[nic-mp]] (and definitions
 #      [[nic-dfim]] and [[nic-dfneg]]).  Note that the standard axioms [[ax-1]],
 #      [[ax-2]], and [[ax-3]] are proved from the Lukasiewicz axioms by theorems
 #      [[ax1]], [[ax2]], and [[ax3]].  (Contributed by Jeff Hoffman,
 #      18-Nov-2007.) 
-thm (nic-luk1 () () (-> (-> ph ps) (-> (-> ps ch) (-> ph ch))) ph ps def-im nic-bi2 ph ps ps ta (-/\ ch ch) nic-ax nic-isw2 nic-idel ph ch def-im nic-bi1 nic-idbl (-/\ (-/\ ch ch) ps) nic-imp ps ch def-im nic-bi2 ps (-/\ ch ch) nic-swap nic-ich (-/\ (-> ph ch) (-> ph ch)) nic-imp nic-ich nic-ich (-> ps ch) (-> ph ch) def-im nic-bi1 nic-ich nic-ich (-> ph ps) (-> (-> ps ch) (-> ph ch)) def-im nic-bi1 nic-mp)
+thm (luk-1 () () (-> (-> ph ps) (-> (-> ps ch) (-> ph ch))) ph ps def-im nic-bi2 ph ps ps ta (-/\ ch ch) nic-ax nic-isw2 nic-idel ph ch def-im nic-bi1 nic-idbl (-/\ (-/\ ch ch) ps) nic-imp ps ch def-im nic-bi2 ps (-/\ ch ch) nic-swap nic-ich (-/\ (-> ph ch) (-> ph ch)) nic-imp nic-ich nic-ich (-> ps ch) (-> ph ch) def-im nic-bi1 nic-ich nic-ich (-> ph ps) (-> (-> ps ch) (-> ph ch)) def-im nic-bi1 nic-mp)
 
 #  Proof of [[luk-2]] from [[nic-ax]] and [[nic-mp]].  (Contributed by Jeff
 #      Hoffman, 18-Nov-2007.) 
-thm (nic-luk2 () () (-> (-> (-. ph) ph) ph) (-. ph) ph def-im nic-bi2 ph def-neg (-/\ ph ph) nic-id nic-iimp1 nic-isw2 nic-iimp1 nic-isw1 (-> (-. ph) ph) ph def-im nic-bi1 nic-mp)
+thm (luk-2 () () (-> (-> (-. ph) ph) ph) (-. ph) ph def-im nic-bi2 ph def-neg (-/\ ph ph) nic-id nic-iimp1 nic-isw2 nic-iimp1 nic-isw1 (-> (-. ph) ph) ph def-im nic-bi1 nic-mp)
 
 #  Proof of [[luk-3]] from [[nic-ax]] and [[nic-mp]].  (Contributed by Jeff
 #      Hoffman, 18-Nov-2007.) 
-thm (nic-luk3 () () (-> ph (-> (-. ph) ps)) (-. ph) ps def-im nic-bi1 ph def-neg nic-bi2 ph nic-id nic-iimp1 nic-iimp2 ph (-> (-. ph) ps) def-im nic-bi1 nic-mp)
+thm (luk-3 () () (-> ph (-> (-. ph) ps)) (-. ph) ps def-im nic-bi1 ph def-neg nic-bi2 ph nic-id nic-iimp1 nic-iimp2 ph (-> (-. ph) ps) def-im nic-bi1 nic-mp)
 
+export (PROP_LUK /peano/prop_luk.ghi () "") 
