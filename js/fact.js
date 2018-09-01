@@ -595,11 +595,12 @@
                 for (var v in depCtx.bindingVars) {
                     if (depCtx.bindingVars.hasOwnProperty(v)) {
                         var myBvar = varMap[v];
-                        if (bindingVarsUsed[myBvar]) {
+                        if (bindingVarsUsed.hasOwnProperty(myBvar)) {
                             throw new Error("Binding variables not distinct: "
-                                            + term + " at step " + index);
+                                            + myBvar + "," + bindingVarsUsed[myBvar]
+                                            + " at step " + index);
                         }
-                        bindingVarsUsed[myBvar] = true;
+                        bindingVarsUsed[myBvar] = myBvar;
                     }
                 }
                 
