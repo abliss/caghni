@@ -473,13 +473,15 @@
             exp.slice(1).forEach(visitVars.bind(null, ctx, callback));
             var freeMap = ctx.fact.FreeMaps[exp[0]];
             freeMap.forEach(function(bindingList, argNum) {
-                var arg = exp[argNum + 1];
-                if (Array.isArray(arg)) {
-                    throw new Error("Term " + JSON.stringify(arg) +
-                                    " passed as arg " + k + " to " + 
-                                    ctx.fact.Skin.TermNames[exp[0]]);
+                if (Array.isArray(bindingList)) {
+                    var arg = exp[argNum + 1];
+                    if (Array.isArray(arg)) {
+                        throw new Error("Term " + JSON.stringify(arg) +
+                                        " passed as arg " + argNum + " to " +
+                                        ctx.fact.Skin.TermNames[exp[0]]);
+                    }
+                    ctx.bindingVars[arg] = true;
                 }
-                ctx.bindingVars[arg] = true;
             });
         } else {
             if (callback) {
@@ -775,10 +777,11 @@
                 for (var v in ctx.bindingVars) {
                     if (ctx.bindingVars.hasOwnProperty(v) &&
                         formalArgs.hasOwnProperty(v)) {
-                        if (newFreeMap[v] == null) {
+                        var argNum = formalArgs[v];
+                        var bindingList = newFreeMap[argNum];
+                        if (!Array.isArray(bindingList)) {
                             throw new Error("bvar " + v + " not in freemap");
                         }
-                        var bindingList = newFreeMap[v];
                         // this says: v is bound in defSig UNLESS v is free in
                         // EVERY bindingList arg.
                         var computed = [], seen = {};
@@ -801,11 +804,11 @@
                             throw new Error("Freemap mismatch for " + v + ":" +
                                             computed + " != " + bindingList);
                         }
-                        checkedVars[v] = true;
+                        checkedVars[argNum] = true;
                     }
                 }
                 newFreeMap.forEach(function(bindingList, argNum) {
-                    if ((bindingList != null) && !checkedVars[argNum]) {
+                    if (Array.isArray(bindingList) && !checkedVars[argNum]) {
                         throw new Error("Spurious arg in freemap: " + argNum);
                     }
                 });

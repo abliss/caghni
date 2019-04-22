@@ -1696,6 +1696,13 @@ defthm (df-subst wff ([/] A x ph) ((A z) (ph z)) ()
          (<-> ([/] A x ph) (E. z (/\ (= z A) (E. x (/\ (= x z) ph)))))
          y A x ph z df-subst-just)
 
+defthm (df-subst2 wff ([/]2 x A ph) ((A z) (ph z)) ()
+         (<-> ([/]2 x A ph) (E. z (/\ (= z A) (E. x (/\ (= x z) ph)))))
+     y z A eqeq1
+       y z x eqeq2 ph anbi1d x exbid
+     anbi12d exalpha
+)
+
 defthm (df-rwff wff (rwff x ph) () ()
         (<-> (rwff x ph) (A. x (<-> ph ([/] x x ph))))
       (A. x (<-> ph ([/] x x ph))) biid)

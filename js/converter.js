@@ -247,13 +247,19 @@
         this.populateFact(fact, fv, myHyps, concl, proof, dkind, dsig, syms);
         this.factsByLabel[label] = fact;
         this.factCallback(fact);
+        var fact2;
         try {
-            fact.verify();
+            var verified = fact.verify();
+            // Verify again after roundtripping to text
+            fact2 = new Fact(JSON.parse(JSON.stringify(fact)));
+            fact2.verify();
         } catch(e) {
-            console.log("Error verifying " + JSON.stringify(fact));
+            console.log("Error verifying " + JSON.stringify(fact), e);
             e.fact = fact;
-            Fs.writeFile(fact.Skin.Name+".verify_fail.json",
+            Fs.writeFileSync(fact.Skin.Name+".verify_fail.json",
                          JSON.stringify(fact));
+            Fs.writeFileSync(fact.Skin.Name+"2.verify_fail.json",
+                         JSON.stringify(fact2));
             //throw e;
         }
         // super()
