@@ -528,7 +528,7 @@
                     if (ctx.stack.length == 0) {
                         throw new Error("Stack underflow: step " + step);
                     } else if (!unify(hyp, ctx.stack.pop(), varMap, opMap)) {
-                        throw new Error("Hyp unify fail: step " + step);
+                        throw new Error("Hyp unify fail: step " + step + " at " + index);
                     }
                 }, undefined);
                 // Map remaining vars in stmt using mandhyps
