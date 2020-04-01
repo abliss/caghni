@@ -524,12 +524,22 @@
                 var opMap = dep[1];
                 var varMap = {}; // from dep vars to terms in fact vars
                 // Map vars present in hyps by one-way unification
-                depCore[Fact.CORE_HYPS].reduceRight(function(ignored, hyp) {
+                depCore[Fact.CORE_HYPS].reduceRight(function(progress, hyp) {
+                    var top;
                     if (ctx.stack.length == 0) {
                         throw new Error("Stack underflow: step " + step);
-                    } else if (!unify(hyp, ctx.stack.pop(), varMap, opMap)) {
-                        throw new Error("Hyp unify fail: step " + step + " at " + index);
+                    } else {
+                        top = ctx.stack.pop();
+                        if (!unify(hyp, top, varMap, opMap)) {
+                            throw new Error(
+                                "Hyp unify fail: step " + step + " at " + index +
+                                    " wanted to see " + JSON.stringify(hyp) +
+                                    " but stack held " + JSON.stringify(top) +
+                                    progress);
+                        }
                     }
+                    return (progress||"") + "\n  matched: " + JSON.stringify(hyp) +
+                        " => " + JSON.stringify(top);
                 }, undefined);
                 // Map remaining vars in stmt using mandhyps
                 function substitute(term) {
